@@ -47,11 +47,16 @@ export function NetworkMap() {
   const mapRef = useRef<MapView>(null);
   const fitted = useRef("");
   const center = useRef({ latitude: MONTPELLIER.latitude, longitude: MONTPELLIER.longitude });
-  const { visible, filter, setFilter, selectedId, setSelectedId } = useLive();
+  const { visible, vehicles, filter, setFilter, selectedId, setSelectedId } = useLive();
   const { coords, granted } = useUserLocation();
   const { home, work, focus, clearFocus } = usePlaces();
   const { journey, setJourney } = useJourney();
   const drawn = useMemo(() => (journey ? drawJourney(journey) : null), [journey]);
+  const shownVehicles = useMemo(() => {
+    if (!journey) return visible;
+    const ids = new Set(journey.itinerary.legs.map((leg) => leg.routeId));
+    return vehicles.filter((vehicle) => ids.has(vehicle.routeId ?? ""));
+  }, [journey, visible, vehicles]);
   const pick = usePick();
   const { ids: savedIds } = useFavorites();
   const [trackMarkers, setTrackMarkers] = useState(true);
@@ -264,7 +269,7 @@ export function NetworkMap() {
             pinColor="#F5C16C"
           />
         ) : null}
-        {visible.map((vehicle) => (
+        {shownVehicles.map((vehicle) => (
           <VehicleMarker
             key={vehicle.id}
             vehicle={vehicle}
@@ -282,8 +287,18 @@ export function NetworkMap() {
             <Text style={styles.pickTitle}>{pick.role === "origin" ? "Départ" : "Arrivée"}</Text>
             <Text style={styles.pickHint}>{pinMessage ?? "Déplace la carte"}</Text>
           </View>
+        ) : journey ? (
+          <View style={styles.followCard}>
+            <Pressable style={styles.followAction} onPress={centerOnMe}>
+              <Text style={styles.followText}>Moi</Text>
+            </Pressable>
+            <Text style={styles.followTitle}>Itinéraire</Text>
+            <Pressable style={styles.followAction} onPress={() => setJourney(null)}>
+              <Text style={styles.followText}>Effacer</Text>
+            </Pressable>
+          </View>
         ) : (
-          <FilterBar onMe={centerOnMe} onNetwork={showNetwork} onClear={journey ? () => setJourney(null) : undefined} />
+          <FilterBar onMe={centerOnMe} onNetwork={showNetwork} />
         )}
         <View pointerEvents="box-none" style={[styles.bottom, { marginBottom: insets.bottom + 72 }]}>
           {pick.role ? (
@@ -485,6 +500,33 @@ function createStyles(palette: Palette) {
   pickHint: {
     color: palette.muted,
     fontSize: 13,
+  },
+  followCard: {
+    marginHorizontal: 12,
+    marginTop: 8,
+    backgroundColor: palette.panel,
+    borderRadius: 22,
+    padding: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  followTitle: {
+    flex: 1,
+    textAlign: "center",
+    color: palette.text,
+    fontSize: 17,
+    fontWeight: "700",
+  },
+  followAction: {
+    backgroundColor: palette.fill,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  followText: {
+    color: palette.text,
+    fontWeight: "700",
   },
   journeyCard: {
     marginHorizontal: 12,

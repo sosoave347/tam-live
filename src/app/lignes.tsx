@@ -3,12 +3,15 @@ import { Pressable, SectionList, StyleSheet, Text, TextInput, View } from "react
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppearanceControl } from "@/components/appearance-control";
+import { PlaceCard } from "@/components/place-card";
 import { type Palette } from "@/constants/theme";
 import { usePalette, useStyles } from "@/lib/appearance";
 import { useFavorites } from "@/lib/favorites";
 import { formatClock } from "@/lib/format";
 import { useLive } from "@/lib/live";
 import { routes, type RouteInfo } from "@/lib/network";
+import { usePlaces } from "@/lib/places";
 
 export default function LinesScreen() {
   const styles = useStyles(createStyles);
@@ -16,6 +19,7 @@ export default function LinesScreen() {
   const router = useRouter();
   const { counts, filter, setFilter, setSelectedId, updatedAt, error, refresh } = useLive();
   const { has, toggle, ids } = useFavorites();
+  const { home, work } = usePlaces();
   const [query, setQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
 
@@ -62,6 +66,16 @@ export default function LinesScreen() {
         sections={sections}
         keyExtractor={(route) => route.id}
         contentContainerStyle={styles.list}
+        ListHeaderComponent={
+          <View style={styles.headerBlock}>
+            <AppearanceControl />
+            <Text style={styles.section}>Adresses</Text>
+            <View style={styles.addressCard}>
+              <PlaceCard kind="home" title="Domicile" place={home} />
+              <PlaceCard kind="work" title="Travail" place={work} />
+            </View>
+          </View>
+        }
         stickySectionHeadersEnabled={false}
         refreshing={refreshing}
         onRefresh={async () => {
@@ -136,6 +150,16 @@ function createStyles(palette: Palette) {
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
+  },
+  headerBlock: {
+    gap: 8,
+    marginBottom: 8,
+  },
+  addressCard: {
+    backgroundColor: palette.panelSolid,
+    borderRadius: 20,
+    padding: 14,
+    gap: 16,
   },
   list: {
     paddingTop: 8,

@@ -18,6 +18,12 @@ export default function AppTabs() {
           <TabTrigger name="trajet" href="/trajet" asChild>
             <TabButton>Trajet</TabButton>
           </TabTrigger>
+          <TabTrigger name="autour" href="/autour" asChild>
+            <TabButton>Autour</TabButton>
+          </TabTrigger>
+          <TabTrigger name="alertes" href="/alertes" asChild>
+            <TabButton>Alertes</TabButton>
+          </TabTrigger>
           <TabTrigger name="lignes" href="/lignes" asChild>
             <TabButton>Lignes</TabButton>
           </TabTrigger>
