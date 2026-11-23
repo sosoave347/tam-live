@@ -13,6 +13,9 @@ export default function AppTabs() {
           <TabTrigger name="carte" href="/" asChild>
             <TabButton>Carte</TabButton>
           </TabTrigger>
+          <TabTrigger name="amigo" href="/amigo" asChild>
+            <TabButton>Amigo</TabButton>
+          </TabTrigger>
           <TabTrigger name="trajet" href="/trajet" asChild>
             <TabButton>Trajet</TabButton>
           </TabTrigger>
@@ -52,13 +55,13 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   buttonActive: {
-    backgroundColor: palette.text,
+    backgroundColor: palette.blue,
   },
   label: {
     color: palette.text,
     fontWeight: "700",
   },
   labelActive: {
-    color: palette.ink,
+    color: "#FFFFFF",
   },
 });

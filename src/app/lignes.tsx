@@ -91,7 +91,7 @@ export default function LinesScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: palette.ink,
+    backgroundColor: palette.bg,
     paddingHorizontal: 16,
   },
   kicker: {

@@ -5,17 +5,21 @@ import { palette } from "@/constants/theme";
 export default function AppTabs() {
   return (
     <NativeTabs
-      backgroundColor={palette.ink}
-      indicatorColor="#1C2A3A"
-      iconColor={{ default: palette.muted, selected: palette.text }}
+      backgroundColor="#F8F8F8"
+      indicatorColor={palette.fill}
+      iconColor={{ default: palette.muted, selected: palette.blue }}
       labelStyle={{
         default: { color: palette.muted },
-        selected: { color: palette.text },
+        selected: { color: palette.blue },
       }}
-      tintColor={palette.text}>
+      tintColor={palette.blue}>
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Label>Carte</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="map.fill" md="map" />
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="amigo">
+        <NativeTabs.Trigger.Label>Amigo</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="bubble.left.fill" md="chat" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="trajet">
         <NativeTabs.Trigger.Label>Trajet</NativeTabs.Trigger.Label>

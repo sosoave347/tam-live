@@ -9,6 +9,7 @@ export type StopInfo = {
 
 export const stops = catalog.stops as StopInfo[];
 export const routesByStop = catalog.routesByStop as Record<string, string[]>;
+export const stopById = new Map(stops.map((stop) => [stop.id, stop]));
 
 export type StopCluster = {
   name: string;

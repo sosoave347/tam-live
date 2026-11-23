@@ -157,7 +157,7 @@ function PlaceCard({ kind, title, place }: { kind: "home" | "work"; title: strin
       />
       <View style={styles.actions}>
         <Pressable style={styles.primary} disabled={busy} onPress={() => run(() => saveAddress(kind, draft))}>
-          {busy ? <ActivityIndicator color={palette.ink} /> : <Text style={styles.primaryText}>Enregistrer</Text>}
+          {busy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryText}>Enregistrer</Text>}
         </Pressable>
         <Pressable style={styles.secondary} disabled={busy} onPress={() => run(() => saveHere(kind))}>
           <Text style={styles.secondaryText}>Ma position</Text>
@@ -235,7 +235,7 @@ function ArrivalLine({
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: palette.ink,
+    backgroundColor: palette.bg,
   },
   content: {
     paddingHorizontal: 16,
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
   },
   copy: { flex: 1 },
   input: {
-    backgroundColor: palette.ink,
+    backgroundColor: palette.fill,
     color: palette.text,
     borderRadius: 14,
     paddingHorizontal: 12,
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   primary: {
-    backgroundColor: palette.text,
+    backgroundColor: palette.blue,
     borderRadius: 999,
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -345,14 +345,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   primaryText: {
-    color: palette.ink,
+    color: "#FFFFFF",
     fontWeight: "700",
   },
   secondary: {
     borderRadius: 999,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: palette.fill,
   },
   secondaryText: {
     color: palette.text,

@@ -1,6 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
 
-import { palette } from "@/constants/theme";
+import { cardShadow, palette } from "@/constants/theme";
 import { formatClock } from "@/lib/format";
 import { useLive } from "@/lib/live";
 import { routeFor, routes, type RouteMode } from "@/lib/network";
@@ -12,6 +13,7 @@ const MODES: { id: "all" | RouteMode; label: string }[] = [
 ];
 
 export function FilterBar() {
+  const router = useRouter();
   const { filter, setFilter, setSelectedId, vehicles, visible, loading, error, updatedAt } = useLive();
   const trams = routes.filter((route) => route.mode === "tram");
   const selectedRoute = routes.find((route) => route.id === filter.routeId);
@@ -30,16 +32,19 @@ export function FilterBar() {
 
   return (
     <View style={styles.wrap}>
-      <View style={styles.titleRow}>
-        <View>
-          <Text style={styles.kicker}>Montpellier</Text>
-          <Text style={styles.title}>TAM Live</Text>
+      <Pressable style={styles.amigo} onPress={() => router.push("/amigo")}>
+        <View style={styles.amigoMark}>
+          <Text style={styles.amigoMarkText}>A</Text>
+        </View>
+        <View style={styles.amigoCopy}>
+          <Text style={styles.title}>Amigo</Text>
+          <Text style={styles.kicker}>Où veux-tu aller ?</Text>
         </View>
         <View style={styles.stats}>
           <Text style={styles.statValue}>{loading && vehicles.length === 0 ? "…" : visible.length}</Text>
           <Text style={styles.statLabel}>en ligne</Text>
         </View>
-      </View>
+      </Pressable>
 
       <View style={styles.modes}>
         {MODES.map((mode) => {
@@ -101,11 +106,28 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     backgroundColor: palette.panel,
     gap: 10,
+    ...cardShadow,
   },
-  titleRow: {
+  amigo: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    gap: 10,
+  },
+  amigoMark: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: palette.blue,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  amigoMarkText: {
+    color: "#FFFFFF",
+    fontWeight: "800",
+    fontSize: 16,
+  },
+  amigoCopy: {
+    flex: 1,
   },
   kicker: {
     color: palette.muted,
@@ -140,10 +162,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: palette.fill,
   },
   modeActive: {
-    backgroundColor: palette.text,
+    backgroundColor: palette.blue,
   },
   modeText: {
     color: palette.text,
@@ -151,7 +173,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   modeTextActive: {
-    color: palette.ink,
+    color: "#FFFFFF",
   },
   mix: {
     marginLeft: "auto",
@@ -172,7 +194,7 @@ const styles = StyleSheet.create({
   },
   lineActive: {
     borderWidth: 2,
-    borderColor: "#FFFFFF",
+    borderColor: palette.ink,
   },
   busLine: {
     paddingHorizontal: 12,

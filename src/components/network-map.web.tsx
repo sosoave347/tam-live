@@ -49,7 +49,7 @@ export function NetworkMap() {
 }
 
 const styles = StyleSheet.create({
-  fill: { flex: 1, backgroundColor: palette.ink },
+  fill: { flex: 1, backgroundColor: palette.bg },
   notice: { color: palette.muted, padding: 16, paddingBottom: 0 },
   error: { color: palette.danger, paddingHorizontal: 16, paddingTop: 8 },
   list: { padding: 16, gap: 8 },

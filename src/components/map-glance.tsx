@@ -159,13 +159,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   action: {
-    backgroundColor: palette.text,
+    backgroundColor: palette.blue,
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   actionText: {
-    color: palette.ink,
+    color: "#FFFFFF",
     fontWeight: "700",
   },
 });

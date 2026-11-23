@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import * as Location from "expo-location";
-import MapView, { Marker, type Region } from "react-native-maps";
+import MapView, { Marker, Polyline, type Region } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FilterBar } from "@/components/filter-bar";
@@ -10,10 +10,12 @@ import { VehicleSheet } from "@/components/vehicle-sheet";
 import { palette } from "@/constants/theme";
 import { isStale } from "@/lib/format";
 import type { LiveVehicle } from "@/lib/gtfs-rt";
+import { useJourney } from "@/lib/journey";
 import { useLive } from "@/lib/live";
 import { useUserLocation } from "@/lib/location";
 import { routeFor } from "@/lib/network";
 import { usePlaces } from "@/lib/places";
+import { busRouteIds, routeColor, routePaths, stopsAlong, tramRouteIds } from "@/lib/shapes";
 
 const MONTPELLIER: Region = {
   latitude: 43.6109,
@@ -36,9 +38,10 @@ export function NetworkMap() {
   const insets = useSafeAreaInsets();
   const mapRef = useRef<MapView>(null);
   const fitted = useRef("");
-  const { visible, filter, selectedId, setSelectedId } = useLive();
+  const { visible, filter, setFilter, selectedId, setSelectedId } = useLive();
   const { granted } = useUserLocation();
   const { home, work, focus, clearFocus } = usePlaces();
+  const { journey, setJourney } = useJourney();
   const [trackMarkers, setTrackMarkers] = useState(true);
   const [followsUser, setFollowsUser] = useState(false);
 
@@ -46,11 +49,24 @@ export function NetworkMap() {
     setTrackMarkers(true);
     const timer = setTimeout(() => setTrackMarkers(false), 700);
     return () => clearTimeout(timer);
-  }, [visible, selectedId]);
+  }, [visible, selectedId, filter.routeId]);
+
+  useEffect(() => {
+    if (!mapRef.current || !filter.routeId) return;
+    const points = routePaths(filter.routeId).flat();
+    if (points.length === 0) return;
+    const key = `shape:${filter.routeId}`;
+    if (fitted.current === key) return;
+    fitted.current = key;
+    mapRef.current.fitToCoordinates(points.filter((_, index) => index % 6 === 0), {
+      edgePadding: { top: 180, right: 40, bottom: 220, left: 40 },
+      animated: true,
+    });
+  }, [filter.routeId]);
 
   useEffect(() => {
     const key = `${filter.mode}:${filter.routeId ?? "all"}`;
-    if (!mapRef.current || visible.length === 0 || fitted.current === key) return;
+    if (!mapRef.current || filter.routeId || visible.length === 0 || fitted.current === key) return;
     fitted.current = key;
     fitTo(mapRef.current, visible);
   }, [visible, filter.mode, filter.routeId]);
@@ -96,12 +112,43 @@ export function NetworkMap() {
         toolbarEnabled={false}
         rotateEnabled={false}
         onPanDrag={() => setFollowsUser(false)}>
+        {traceIds(filter, journey?.itinerary.legs.map((leg) => leg.routeId) ?? []).map((routeId) =>
+          routePaths(routeId).map((coordinates, index) => (
+            <Polyline
+              key={`${routeId}-${index}`}
+              coordinates={coordinates}
+              strokeColor={routeColor(routeId)}
+              strokeWidth={filter.routeId === routeId || journey?.itinerary.legs.some((leg) => leg.routeId === routeId) ? 6 : 3}
+              tappable
+              onPress={() => {
+                const route = routeFor(routeId);
+                setSelectedId(null);
+                setFilter({ mode: route?.mode ?? "bus", routeId });
+              }}
+            />
+          )),
+        )}
+        {filter.routeId
+          ? stopsAlong(filter.routeId).map((stop) => (
+              <Marker key={`stop-${filter.routeId}-${stop.latitude}-${stop.longitude}`} coordinate={stop} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={trackMarkers}>
+                <View style={[styles.stopDot, { borderColor: routeColor(filter.routeId ?? "") }]} />
+              </Marker>
+            ))
+          : null}
         {home ? (
           <Marker
             coordinate={{ latitude: home.latitude, longitude: home.longitude }}
             title="Domicile"
             description={home.address}
-            pinColor="#F4F7FB"
+            pinColor="#007AFF"
+          />
+        ) : null}
+        {journey ? (
+          <Marker
+            coordinate={journey.destination}
+            title="Arrivée"
+            description={journey.destination.address}
+            pinColor="#FF3B30"
           />
         ) : null}
         {work ? (
@@ -133,12 +180,25 @@ export function NetworkMap() {
             <Pressable style={styles.tool} onPress={showNetwork}>
               <Text style={styles.toolText}>Réseau</Text>
             </Pressable>
+            {journey ? (
+              <Pressable style={styles.tool} onPress={() => setJourney(null)}>
+                <Text style={styles.toolText}>Effacer</Text>
+              </Pressable>
+            ) : null}
           </View>
           {selectedId ? <VehicleSheet /> : <MapGlance />}
         </View>
       </View>
     </View>
   );
+}
+
+function traceIds(filter: { mode: string; routeId: string | null }, extra: string[]) {
+  const ids = new Set<string>(extra);
+  if (filter.routeId) ids.add(filter.routeId);
+  else if (filter.mode === "bus") busRouteIds().forEach((id) => ids.add(id));
+  else tramRouteIds().forEach((id) => ids.add(id));
+  return [...ids];
 }
 
 function fitTo(map: MapView, vehicles: LiveVehicle[]) {
@@ -204,7 +264,7 @@ function VehicleMarker({
 const styles = StyleSheet.create({
   fill: {
     flex: 1,
-    backgroundColor: palette.ink,
+    backgroundColor: palette.bg,
   },
   overlay: {
     ...StyleSheet.absoluteFill,
@@ -260,5 +320,12 @@ const styles = StyleSheet.create({
   pillText: {
     fontSize: 12,
     fontWeight: "800",
+  },
+  stopDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 2,
   },
 });
