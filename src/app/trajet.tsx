@@ -65,12 +65,13 @@ export default function TripScreen() {
               <Text style={styles.meta}>Active la position, ou enregistre le domicile.</Text>
             ) : commute.length === 0 ? (
               <Text style={styles.meta}>Aucun trajet.</Text>
-            ) : (
-              commute.map((itinerary) => (
+            ) : null}
+          </View>
+          {work && !past && commuteFrom
+            ? commute.map((itinerary) => (
                 <ItineraryCard key={itinerary.id} itinerary={itinerary} onPress={() => openCommute(itinerary)} />
               ))
-            )}
-          </View>
+            : null}
         </View>
       </ScrollView>
     </SafeAreaView>

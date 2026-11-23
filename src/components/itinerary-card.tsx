@@ -8,37 +8,40 @@ export function ItineraryCard({ itinerary, onPress }: { itinerary: Itinerary; on
   const styles = useStyles(createStyles);
   return (
     <Pressable style={styles.card} onPress={onPress}>
-      <Text style={styles.time}>{itinerary.departAt}</Text>
-      <View style={styles.center}>
+      <View style={styles.head}>
+        <Text style={styles.time}>
+          {itinerary.departAt} – {itinerary.arriveAt}
+        </Text>
         <Text style={styles.duration}>{itinerary.totalMin} min</Text>
-        <View style={styles.steps}>
-          {itinerary.legs.length === 0 ? (
-            <Text style={styles.walk}>À pied</Text>
-          ) : (
-            itinerary.legs.map((leg) => (
-              <View key={`${leg.routeId}-${leg.boardName}`} style={[styles.badge, { backgroundColor: leg.color }]}>
-                <Text style={[styles.badgeText, { color: leg.textColor }]}>{leg.shortName}</Text>
-              </View>
-            ))
-          )}
-          {itinerary.walkMin > 0 && itinerary.legs.length > 0 ? <Text style={styles.walk}>{itinerary.walkMin} min</Text> : null}
-        </View>
       </View>
-      <Text style={styles.time}>{itinerary.arriveAt}</Text>
+      <Text style={styles.detail} numberOfLines={1}>
+        {describe(itinerary)}
+      </Text>
     </Pressable>
   );
+}
+
+function describe(itinerary: Itinerary) {
+  if (itinerary.legs.length === 0) return `${itinerary.walkMin} min à pied`;
+  const lines = itinerary.legs.map((leg) => `${leg.mode === "tram" ? "Tram" : "Bus"} ${leg.shortName}`).join(" · ");
+  const walk = itinerary.walkMin > 0 ? `${itinerary.walkMin} min à pied · ` : "";
+  return `${walk}${lines}`;
 }
 
 function createStyles(palette: Palette) {
   return StyleSheet.create({
     card: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 12,
-      backgroundColor: palette.fill,
+      backgroundColor: palette.panelSolid,
       borderRadius: 16,
       paddingHorizontal: 14,
       paddingVertical: 12,
+      gap: 4,
+    },
+    head: {
+      flexDirection: "row",
+      alignItems: "baseline",
+      justifyContent: "space-between",
+      gap: 12,
     },
     time: {
       color: palette.text,
@@ -46,38 +49,15 @@ function createStyles(palette: Palette) {
       fontWeight: "700",
       fontVariant: ["tabular-nums"],
     },
-    center: {
-      flex: 1,
-      alignItems: "center",
-      gap: 4,
-    },
     duration: {
+      color: palette.blue,
+      fontSize: 17,
+      fontWeight: "700",
+      fontVariant: ["tabular-nums"],
+    },
+    detail: {
       color: palette.muted,
-      fontSize: 12,
-      fontWeight: "600",
-    },
-    steps: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 4,
-    },
-    badge: {
-      minWidth: 26,
-      height: 22,
-      borderRadius: 7,
-      alignItems: "center",
-      justifyContent: "center",
-      paddingHorizontal: 6,
-    },
-    badgeText: {
-      fontSize: 12,
-      fontWeight: "800",
-    },
-    walk: {
-      color: palette.muted,
-      fontSize: 12,
-      fontWeight: "600",
+      fontSize: 14,
     },
   });
 }

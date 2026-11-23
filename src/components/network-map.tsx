@@ -13,7 +13,7 @@ import { useFavorites } from "@/lib/favorites";
 import { inMetropole, readableAddress } from "@/lib/geocode";
 import { isStale } from "@/lib/format";
 import type { LiveVehicle } from "@/lib/gtfs-rt";
-import { drawJourney } from "@/lib/journey-path";
+import { drawJourney, guideJourney } from "@/lib/journey-path";
 import { useJourney } from "@/lib/journey";
 import { useLive } from "@/lib/live";
 import { useUserLocation } from "@/lib/location";
@@ -47,16 +47,15 @@ export function NetworkMap() {
   const mapRef = useRef<MapView>(null);
   const fitted = useRef("");
   const center = useRef({ latitude: MONTPELLIER.latitude, longitude: MONTPELLIER.longitude });
-  const { visible, vehicles, filter, setFilter, selectedId, setSelectedId } = useLive();
+  const { visible, filter, setFilter, selectedId, setSelectedId } = useLive();
   const { coords, granted } = useUserLocation();
   const { home, work, focus, clearFocus } = usePlaces();
   const { journey, setJourney } = useJourney();
   const drawn = useMemo(() => (journey ? drawJourney(journey) : null), [journey]);
-  const shownVehicles = useMemo(() => {
-    if (!journey) return visible;
-    const ids = new Set(journey.itinerary.legs.map((leg) => leg.routeId));
-    return vehicles.filter((vehicle) => ids.has(vehicle.routeId ?? ""));
-  }, [journey, visible, vehicles]);
+  const guide = useMemo(
+    () => (journey ? guideJourney(journey, coords) : null),
+    [journey, coords?.latitude, coords?.longitude],
+  );
   const pick = usePick();
   const { ids: savedIds } = useFavorites();
   const [trackMarkers, setTrackMarkers] = useState(true);
@@ -214,7 +213,12 @@ export function NetworkMap() {
           : null}
         {drawn
           ? drawn.rides.map((ride) => (
-              <Polyline key={ride.key} coordinates={ride.coordinates} strokeColor={ride.color} strokeWidth={6} />
+              <Polyline key={`${ride.key}-case`} coordinates={ride.coordinates} strokeColor="#FFFFFF" strokeWidth={10} zIndex={2} />
+            ))
+          : null}
+        {drawn
+          ? drawn.rides.map((ride) => (
+              <Polyline key={ride.key} coordinates={ride.coordinates} strokeColor={ride.color} strokeWidth={5} zIndex={3} />
             ))
           : null}
         {drawn ? (
@@ -269,7 +273,9 @@ export function NetworkMap() {
             pinColor="#F5C16C"
           />
         ) : null}
-        {shownVehicles.map((vehicle) => (
+        {journey
+          ? null
+          : visible.map((vehicle) => (
           <VehicleMarker
             key={vehicle.id}
             vehicle={vehicle}
@@ -319,18 +325,11 @@ export function NetworkMap() {
                 </Pressable>
           </View>
           ) : null}
-          {pick.role || !journey ? null : (
+          {pick.role || !journey || !guide ? null : (
             <View style={styles.journeyCard}>
-              <Text style={styles.journeyTime}>
-                {journey.itinerary.departAt} – {journey.itinerary.arriveAt}
-              </Text>
-              <Text style={styles.journeyMeta} numberOfLines={1}>
-                {journey.itinerary.totalMin} min
-                {journey.itinerary.legs.length === 0
-                  ? " · à pied"
-                  : ` · ${journey.itinerary.legs.map((leg) => leg.shortName).join(" ")}`}
-                {journey.itinerary.walkMin > 0 ? ` · ${journey.itinerary.walkMin} min à pied` : ""}
-              </Text>
+              <Text style={styles.journeyTime}>{guide.remainingMin === 0 ? "Arrivé" : `${guide.remainingMin} min`}</Text>
+              <Text style={styles.journeyMeta}>{guide.detail}</Text>
+              <Text style={styles.journeyMeta}>Arrivée {guide.arriveAt}</Text>
             </View>
           )}
           {pick.role || journey || !selectedId ? null : <VehicleSheet />}
@@ -442,6 +441,10 @@ function createStyles(palette: Palette) {
   },
   marker: {
     alignItems: "center",
+    justifyContent: "center",
+    minWidth: 52,
+    minHeight: 52,
+    padding: 8,
   },
   stale: {
     opacity: 0.45,
@@ -457,11 +460,14 @@ function createStyles(palette: Palette) {
     borderRightColor: "transparent",
   },
   pill: {
-    minWidth: 28,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 10,
+    minWidth: 36,
+    height: 28,
+    paddingHorizontal: 8,
+    borderRadius: 14,
     alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
   },
   pillSelected: {
     borderWidth: 2,
@@ -538,7 +544,7 @@ function createStyles(palette: Palette) {
   },
   journeyTime: {
     color: palette.text,
-    fontSize: 17,
+    fontSize: 34,
     fontWeight: "700",
     fontVariant: ["tabular-nums"],
   },
