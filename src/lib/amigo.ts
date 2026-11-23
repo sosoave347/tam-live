@@ -59,8 +59,8 @@ export function planJourney(
     list.push(trip);
     liveByRoute.set(trip.routeId, list);
   }
-  const origins = nearbyStops(origin.latitude, origin.longitude, 6, 950);
-  const destinations = nearbyStops(destination.latitude, destination.longitude, 6, 950);
+  const origins = accessStops(origin.latitude, origin.longitude, preference);
+  const destinations = accessStops(destination.latitude, destination.longitude, preference);
   const originIds = idsOf(origins);
   const destinationIds = idsOf(destinations);
   const found: Itinerary[] = [];
@@ -132,7 +132,43 @@ export function planJourney(
     const current = unique.get(itinerary.id);
     if (!current || itinerary.totalMin < current.totalMin) unique.set(itinerary.id, itinerary);
   }
-  return [...unique.values()].sort((left, right) => left.totalMin - right.totalMin || left.transfers - right.transfers).slice(0, 4);
+  return pickResults([...unique.values()], preference);
+}
+
+function accessStops(latitude: number, longitude: number, preference: TripPreference) {
+  if (preference === "tram") return nearbyStops(latitude, longitude, 8, 1600, "tram");
+  if (preference === "bus") return nearbyStops(latitude, longitude, 8, 1200, "bus");
+  return mergeClusters(
+    nearbyStops(latitude, longitude, 6, 1600, "tram"),
+    nearbyStops(latitude, longitude, 6, 1000, "bus"),
+  );
+}
+
+function mergeClusters(trams: StopCluster[], buses: StopCluster[]) {
+  const merged = [...trams];
+  for (const cluster of buses) {
+    if (merged.some((item) => item.ids.some((id) => cluster.ids.includes(id)))) continue;
+    merged.push(cluster);
+  }
+  return merged;
+}
+
+function pickResults(list: Itinerary[], preference: TripPreference) {
+  const sorted = list.sort((left, right) => left.totalMin - right.totalMin || left.transfers - right.transfers);
+  if (preference !== "fast") return sorted.slice(0, 4);
+  const picked: Itinerary[] = [];
+  const push = (item: Itinerary | undefined) => {
+    if (!item || picked.some((current) => current.id === item.id)) return;
+    picked.push(item);
+  };
+  push(sorted[0]);
+  push(sorted.find((item) => item.legs.some((leg) => leg.mode === "tram")));
+  push(sorted.find((item) => item.legs.length === 1));
+  for (const item of sorted) {
+    if (picked.length >= 4) break;
+    push(item);
+  }
+  return picked.sort((left, right) => left.totalMin - right.totalMin);
 }
 
 function idsOf(clusters: StopCluster[]) {
@@ -230,6 +266,6 @@ function build(
     walkMin,
     transfers: Math.max(0, legs.length - 1),
     legs,
-    summary: legs.length === 1 ? `Ligne ${names}, sans changement` : `Lignes ${names}, ${legs.length - 1} changement`,
+    summary: legs.length === 1 ? `${names} · ${walkMin} min à pied` : `${names} · ${walkMin} min à pied`,
   };
 }

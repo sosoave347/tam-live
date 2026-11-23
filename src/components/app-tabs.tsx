@@ -18,10 +18,7 @@ export default function AppTabs() {
         <NativeTabs.Trigger.Label>Carte</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="map.fill" md="map" />
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="amigo">
-        <NativeTabs.Trigger.Label>Amigo</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="bubble.left.fill" md="chat" />
-      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="amigo" hidden />
       <NativeTabs.Trigger name="trajet">
         <NativeTabs.Trigger.Label>Trajet</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="figure.walk" md="directions_walk" />

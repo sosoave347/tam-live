@@ -5,12 +5,11 @@ import { useRouter } from "expo-router";
 import MapView, { Marker, Polyline, type Region } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { AppearanceControl } from "@/components/appearance-control";
 import { FilterBar } from "@/components/filter-bar";
-import { MapGlance } from "@/components/map-glance";
 import { VehicleSheet } from "@/components/vehicle-sheet";
 import { type Palette } from "@/constants/theme";
 import { useAppearance, useStyles } from "@/lib/appearance";
+import { useFavorites } from "@/lib/favorites";
 import { inMetropole, readableAddress } from "@/lib/geocode";
 import { isStale } from "@/lib/format";
 import type { LiveVehicle } from "@/lib/gtfs-rt";
@@ -52,6 +51,7 @@ export function NetworkMap() {
   const { home, work, focus, clearFocus } = usePlaces();
   const { journey, setJourney } = useJourney();
   const pick = usePick();
+  const { ids: savedIds } = useFavorites();
   const [trackMarkers, setTrackMarkers] = useState(true);
   const [followsUser, setFollowsUser] = useState(false);
   const [placing, setPlacing] = useState(false);
@@ -158,7 +158,7 @@ export function NetworkMap() {
         onRegionChange={(region) => {
           center.current = { latitude: region.latitude, longitude: region.longitude };
         }}>
-        {traceIds(filter, journey?.itinerary.legs.map((leg) => leg.routeId) ?? []).map((routeId) =>
+        {traceIds(filter, journey?.itinerary.legs.map((leg) => leg.routeId) ?? [], savedIds).map((routeId) =>
           routePaths(routeId).map((coordinates, index) => (
             <Polyline
               key={`${routeId}-${index}`}
@@ -227,11 +227,6 @@ export function NetworkMap() {
           <FilterBar />
         )}
         <View pointerEvents="box-none" style={[styles.bottom, { marginBottom: insets.bottom + 72 }]}>
-          {pick.role ? null : (
-            <View style={styles.appearance}>
-              <AppearanceControl />
-            </View>
-          )}
           <View style={styles.tools}>
             <Pressable style={styles.tool} onPress={centerOnMe}>
               <Text style={styles.toolText}>Moi</Text>
@@ -263,17 +258,18 @@ export function NetworkMap() {
               </>
             )}
           </View>
-          {pick.role ? null : selectedId ? <VehicleSheet /> : <MapGlance />}
+          {pick.role || !selectedId ? null : <VehicleSheet />}
         </View>
       </View>
     </View>
   );
 }
 
-function traceIds(filter: { mode: string; routeId: string | null }, extra: string[]) {
+function traceIds(filter: { mode: string; routeId: string | null }, extra: string[], saved: string[]) {
   const ids = new Set<string>(extra);
   if (filter.routeId) ids.add(filter.routeId);
   else if (filter.mode === "bus") busRouteIds().forEach((id) => ids.add(id));
+  else if (filter.mode === "saved") saved.forEach((id) => ids.add(id));
   else tramRouteIds().forEach((id) => ids.add(id));
   return [...ids];
 }

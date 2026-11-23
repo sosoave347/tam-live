@@ -5,6 +5,7 @@ import { useEffect } from "react";
 
 import AppTabs from "@/components/app-tabs";
 import { AppearanceProvider, useAppearance } from "@/lib/appearance";
+import { FavoritesProvider } from "@/lib/favorites";
 import { JourneyProvider } from "@/lib/journey";
 import { LiveProvider } from "@/lib/live";
 import { LocationProvider } from "@/lib/location";
@@ -25,11 +26,13 @@ export default function RootLayout() {
         <LocationProvider>
           <PickProvider>
             <JourneyProvider>
+              <FavoritesProvider>
               <LiveProvider>
                 <ServiceProvider>
                   <ThemedShell />
                 </ServiceProvider>
               </LiveProvider>
+              </FavoritesProvider>
             </JourneyProvider>
           </PickProvider>
         </LocationProvider>

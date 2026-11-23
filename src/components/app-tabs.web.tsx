@@ -15,9 +15,6 @@ export default function AppTabs() {
           <TabTrigger name="carte" href="/" asChild>
             <TabButton>Carte</TabButton>
           </TabTrigger>
-          <TabTrigger name="amigo" href="/amigo" asChild>
-            <TabButton>Amigo</TabButton>
-          </TabTrigger>
           <TabTrigger name="trajet" href="/trajet" asChild>
             <TabButton>Trajet</TabButton>
           </TabTrigger>

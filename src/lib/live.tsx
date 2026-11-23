@@ -10,13 +10,14 @@ import {
 } from "react";
 import { AppState } from "react-native";
 
+import { useFavorites } from "@/lib/favorites";
 import { fetchVehicleFeed, type LiveVehicle } from "@/lib/gtfs-rt";
 import { routeFor, type RouteMode } from "@/lib/network";
 
 const POLL_MS = 10_000;
 
 export type VehicleFilter = {
-  mode: "all" | RouteMode;
+  mode: "all" | "saved" | RouteMode;
   routeId: string | null;
 };
 
@@ -39,8 +40,10 @@ type LiveContextValue = {
 const LiveContext = createContext<LiveContextValue | null>(null);
 
 export function LiveProvider({ children }: { children: ReactNode }) {
+  const favorites = useFavorites();
   const [vehicles, setVehicles] = useState<LiveVehicle[]>([]);
   const [filter, setFilter] = useState<VehicleFilter>({ mode: "all", routeId: null });
+  const appliedSaved = useRef(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -86,14 +89,21 @@ export function LiveProvider({ children }: { children: ReactNode }) {
     };
   }, [refresh]);
 
+  useEffect(() => {
+    if (!favorites.ready || appliedSaved.current) return;
+    appliedSaved.current = true;
+    if (favorites.ids.length > 0) setFilter({ mode: "saved", routeId: null });
+  }, [favorites.ready, favorites.ids]);
+
   const visible = useMemo(
     () =>
       vehicles.filter((vehicle) => {
         if (filter.routeId && vehicle.routeId !== filter.routeId) return false;
+        if (filter.mode === "saved") return favorites.ids.includes(vehicle.routeId ?? "");
         if (filter.mode === "all") return true;
         return routeFor(vehicle.routeId)?.mode === filter.mode;
       }),
-    [vehicles, filter],
+    [vehicles, filter, favorites.ids],
   );
 
   const counts = useMemo(() => {

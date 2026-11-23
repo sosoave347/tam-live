@@ -1,5 +1,7 @@
 import catalog from "@/data/stops.json";
 
+import { routeFor, type RouteMode } from "@/lib/network";
+
 export type StopInfo = {
   id: string;
   name: string;
@@ -20,7 +22,13 @@ export type StopCluster = {
   routeIds: string[];
 };
 
-export function nearbyStops(latitude: number, longitude: number, limit = 5, maxMeters = 800) {
+export function nearbyStops(
+  latitude: number,
+  longitude: number,
+  limit = 5,
+  maxMeters = 800,
+  mode?: RouteMode,
+) {
   const ranked: { stop: StopInfo; distance: number }[] = [];
   for (const stop of stops) {
     const distance = distanceMeters(latitude, longitude, stop.lat, stop.lon);
@@ -30,6 +38,7 @@ export function nearbyStops(latitude: number, longitude: number, limit = 5, maxM
 
   const clusters: StopCluster[] = [];
   for (const item of ranked) {
+    const serves = servesMode(item.stop.id, mode);
     const key = item.stop.name.trim().toLowerCase();
     const existing = clusters.find(
       (cluster) =>
@@ -37,13 +46,14 @@ export function nearbyStops(latitude: number, longitude: number, limit = 5, maxM
         distanceMeters(cluster.latitude, cluster.longitude, item.stop.lat, item.stop.lon) < 160,
     );
     if (existing) {
+      if (!serves) continue;
       existing.ids.push(item.stop.id);
       for (const routeId of routesByStop[item.stop.id] ?? []) {
         if (!existing.routeIds.includes(routeId)) existing.routeIds.push(routeId);
       }
       continue;
     }
-    if (clusters.length >= limit) continue;
+    if (!serves || clusters.length >= limit) continue;
     clusters.push({
       name: item.stop.name,
       latitude: item.stop.lat,
@@ -54,6 +64,11 @@ export function nearbyStops(latitude: number, longitude: number, limit = 5, maxM
     });
   }
   return clusters;
+}
+
+function servesMode(stopId: string, mode?: RouteMode) {
+  if (!mode) return true;
+  return (routesByStop[stopId] ?? []).some((routeId) => routeFor(routeId)?.mode === mode);
 }
 
 export function distanceMeters(lat1: number, lon1: number, lat2: number, lon2: number) {

@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { type Palette } from "@/constants/theme";
 import { usePalette, useStyles } from "@/lib/appearance";
+import { useFavorites } from "@/lib/favorites";
 import { formatClock } from "@/lib/format";
 import { useLive } from "@/lib/live";
 import { routes, type RouteInfo } from "@/lib/network";
@@ -14,6 +15,7 @@ export default function LinesScreen() {
   const palette = usePalette();
   const router = useRouter();
   const { counts, filter, setFilter, setSelectedId, updatedAt, error, refresh } = useLive();
+  const { has, toggle, ids } = useFavorites();
   const [query, setQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
 
@@ -72,17 +74,30 @@ export default function LinesScreen() {
           const count = counts.get(item.id) ?? 0;
           const active = filter.routeId === item.id;
           return (
-            <Pressable onPress={() => openRoute(item)} style={[styles.row, active && styles.rowActive]}>
-              <View style={[styles.badge, { backgroundColor: item.color }]}>
-                <Text style={[styles.badgeText, { color: item.textColor }]}>{item.shortName}</Text>
-              </View>
-              <View style={styles.copy}>
-                <Text style={styles.name} numberOfLines={1}>
-                  {item.longName}
-                </Text>
-                <Text style={styles.meta}>{count === 0 ? "aucun véhicule" : `${count} en ligne`}</Text>
-              </View>
-            </Pressable>
+            <View style={[styles.row, active && styles.rowActive]}>
+              <Pressable onPress={() => openRoute(item)} style={styles.copyRow}>
+                <View style={[styles.badge, { backgroundColor: item.color }]}>
+                  <Text style={[styles.badgeText, { color: item.textColor }]}>{item.shortName}</Text>
+                </View>
+                <View style={styles.copy}>
+                  <Text style={styles.name} numberOfLines={1}>
+                    {item.longName}
+                  </Text>
+                  <Text style={styles.meta}>{count === 0 ? "aucun véhicule" : `${count} en ligne`}</Text>
+                </View>
+              </Pressable>
+              <Pressable
+                hitSlop={8}
+                onPress={() => {
+                  const removing = has(item.id);
+                  toggle(item.id);
+                  const remaining = removing ? ids.filter((id) => id !== item.id) : [...ids, item.id];
+                  setSelectedId(null);
+                  setFilter(remaining.length > 0 ? { mode: "saved", routeId: null } : { mode: "all", routeId: null });
+                }}>
+                <Text style={[styles.star, has(item.id) && styles.starOn]}>{has(item.id) ? "★" : "☆"}</Text>
+              </Pressable>
+            </View>
           );
         }}
         ListEmptyComponent={<Text style={styles.empty}>Aucune ligne ne correspond.</Text>}
@@ -142,6 +157,12 @@ function createStyles(palette: Palette) {
     gap: 12,
     paddingVertical: 8,
   },
+  copyRow: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
   rowActive: {
     backgroundColor: palette.selected,
     borderRadius: 16,
@@ -174,6 +195,13 @@ function createStyles(palette: Palette) {
   empty: {
     color: palette.muted,
     marginTop: 24,
+  },
+  star: {
+    color: palette.muted,
+    fontSize: 20,
+  },
+  starOn: {
+    color: palette.blue,
   },
   });
 }

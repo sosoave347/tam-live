@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -13,110 +13,188 @@ import {
   plansBetween,
   type RidePlan,
 } from "@/lib/commute";
+import { useFavorites } from "@/lib/favorites";
 import { ALERT_LABELS } from "@/lib/gtfs-rt";
 import { useUserLocation } from "@/lib/location";
 import { useLive } from "@/lib/live";
 import { usePlaces, type SavedPlace } from "@/lib/places";
-import { routeFor } from "@/lib/network";
+import { routeFor, routes } from "@/lib/network";
 import { useService } from "@/lib/service";
 import { walkMinutes } from "@/lib/stops";
 
 export default function TripScreen() {
   const styles = useStyles(createStyles);
+  const router = useRouter();
   const { coords, granted, request } = useUserLocation();
   const { home, work } = usePlaces();
   const { trips, alerts } = useService();
   const here = coords;
   const nearby = here ? arrivalsNear(here, trips, alerts) : [];
   const plans = home && work ? plansBetween(home, work, trips, alerts) : [];
+  const nearest = nearby[0];
 
   return (
     <SafeAreaView style={styles.screen} edges={["top"]}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Text style={styles.kicker}>Ton trajet</Text>
-        <Text style={styles.title}>Domicile et travail</Text>
+        <Text style={styles.title}>Trajet</Text>
         <AppearanceControl />
-        <Text style={styles.intro}>
-          Les conseils suivent ta position, les prochains passages TaM et les alertes de perturbation.
-        </Text>
+        <Pressable style={styles.amigo} onPress={() => router.push("/amigo")}>
+          <Text style={styles.cardTitle}>Amigo</Text>
+          <Text style={styles.meta}>Itinéraire</Text>
+        </Pressable>
 
-        <PlaceCard kind="home" title="Domicile" place={home} />
-        <PlaceCard kind="work" title="Travail" place={work} />
+        <Fold title="Adresses" hint={[home && "Domicile", work && "Travail"].filter(Boolean).join(" · ") || "Ajouter"}>
+          <PlaceCard kind="home" title="Domicile" place={home} />
+          <PlaceCard kind="work" title="Travail" place={work} />
+        </Fold>
 
-        <Text style={styles.section}>Perturbations</Text>
-        {alerts.length === 0 ? (
-          <View style={styles.calm}>
-            <Text style={styles.calmTitle}>Aucune alerte en cours</Text>
-            <Text style={styles.meta}>Le flux TaM ne signale ni travaux ni coupure.</Text>
-          </View>
-        ) : (
-          alerts.map((alert) => (
-            <View key={alert.id} style={styles.alertCard}>
-              <Text style={styles.alertKind}>{ALERT_LABELS[alert.effect ?? 7] ?? "Alerte"}</Text>
-              <Text style={styles.cardTitle}>{alert.header}</Text>
-              {alert.description ? <Text style={styles.meta}>{alert.description}</Text> : null}
-              {alert.routeIds.length > 0 ? (
-                <Text style={styles.meta}>
-                  Lignes {alert.routeIds.map((id) => routeFor(id)?.shortName ?? id).join(", ")}
-                </Text>
-              ) : null}
-            </View>
-          ))
-        )}
-
-        <View style={styles.sectionRow}>
-          <Text style={styles.section}>Autour de toi</Text>
-          {!granted ? (
-            <Pressable onPress={request}>
-              <Text style={styles.link}>Activer</Text>
-            </Pressable>
-          ) : null}
-        </View>
-        {!here ? (
-          <Text style={styles.meta}>
-            {granted ? "Position en cours…" : "Autorise la position pour voir les arrêts et les prochains départs."}
-          </Text>
-        ) : (
-          nearby.map(({ cluster, next }) => (
-            <View key={cluster.ids[0]} style={styles.stopCard}>
-              <View style={styles.stopHead}>
-                <View style={styles.copy}>
-                  <Text style={styles.cardTitle}>{cluster.name}</Text>
-                  <Text style={styles.meta}>
-                    {formatDistance(cluster.distance)} · {walkMinutes(cluster.distance)} min à pied
-                  </Text>
-                </View>
+        <Fold title="Perturbations" hint={alerts.length === 0 ? "Aucune" : String(alerts.length)}>
+          {alerts.length === 0 ? (
+            <Text style={styles.meta}>Aucune</Text>
+          ) : (
+            alerts.map((alert) => (
+              <View key={alert.id} style={styles.alertCard}>
+                <Text style={styles.alertKind}>{ALERT_LABELS[alert.effect ?? 7] ?? "Alerte"}</Text>
+                <Text style={styles.cardTitle}>{alert.header}</Text>
+                {alert.routeIds.length > 0 ? (
+                  <Text style={styles.meta}>{alert.routeIds.map((id) => routeFor(id)?.shortName ?? id).join(" ")}</Text>
+                ) : null}
               </View>
-              {next.length === 0 ? (
-                <Text style={styles.meta}>Pas de passage annoncé dans l'heure.</Text>
-              ) : (
-                next.map((arrival) => (
-                  <ArrivalLine
-                    key={`${cluster.ids[0]}-${arrival.routeId}`}
-                    routeId={arrival.routeId}
-                    color={arrival.color}
-                    textColor={arrival.textColor}
-                    shortName={arrival.shortName}
-                    detail={arrival.destination ? `vers ${arrival.destination}` : arrival.mode === "tram" ? "Tram" : "Bus"}
-                    when={formatWait(arrival.time)}
-                    disrupted={arrival.disrupted}
-                  />
-                ))
-              )}
-            </View>
-          ))
-        )}
+            ))
+          )}
+        </Fold>
 
-        <Text style={styles.section}>Pour aller au travail</Text>
-        {!home || !work ? (
-          <Text style={styles.meta}>Enregistre le domicile et le travail pour obtenir les lignes directes.</Text>
-        ) : plans.length === 0 ? (
-          <Text style={styles.meta}>Aucune ligne directe ne relie ces deux adresses à moins de 850 m d'un arrêt.</Text>
-        ) : (
-          plans.map((plan) => <RideCard key={plan.routeId} plan={plan} />)
-        )}
+        <Fold
+          title="Autour de toi"
+          hint={nearest ? `${nearest.cluster.name} · ${formatDistance(nearest.cluster.distance)}` : granted ? "…" : "Position"}
+          extra={
+            !granted ? (
+              <Pressable onPress={request}>
+                <Text style={styles.link}>Activer</Text>
+              </Pressable>
+            ) : null
+          }>
+          {!here ? (
+            <Text style={styles.meta}>{granted ? "Position en cours…" : "Active la position."}</Text>
+          ) : (
+            nearby.map(({ cluster, next }) => (
+              <View key={cluster.ids[0]} style={styles.stopCard}>
+                <Text style={styles.cardTitle}>{cluster.name}</Text>
+                <Text style={styles.meta}>
+                  {formatDistance(cluster.distance)} · {walkMinutes(cluster.distance)} min
+                </Text>
+                {next.length === 0 ? (
+                  <Text style={styles.meta}>Pas de passage</Text>
+                ) : (
+                  next.map((arrival) => (
+                    <ArrivalLine
+                      key={`${cluster.ids[0]}-${arrival.routeId}`}
+                      routeId={arrival.routeId}
+                      color={arrival.color}
+                      textColor={arrival.textColor}
+                      shortName={arrival.shortName}
+                      detail={arrival.destination ?? (arrival.mode === "tram" ? "Tram" : "Bus")}
+                      when={formatWait(arrival.time)}
+                      disrupted={arrival.disrupted}
+                    />
+                  ))
+                )}
+              </View>
+            ))
+          )}
+        </Fold>
+
+        <Fold title="Vers le travail" hint={plans[0] ? plans[0].shortName : home && work ? "Aucune ligne directe" : "Adresses"}>
+          {!home || !work ? (
+            <Text style={styles.meta}>Ajoute le domicile et le travail.</Text>
+          ) : plans.length === 0 ? (
+            <Text style={styles.meta}>Aucune ligne directe.</Text>
+          ) : (
+            plans.map((plan) => <RideCard key={plan.routeId} plan={plan} />)
+          )}
+        </Fold>
+
+        <LinesFold />
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function Fold({
+  title,
+  hint,
+  extra,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  extra?: ReactNode;
+  children: ReactNode;
+}) {
+  const styles = useStyles(createStyles);
+  const [open, setOpen] = useState(false);
+  return (
+    <View style={styles.fold}>
+      <View style={styles.foldHead}>
+        <Pressable style={styles.foldTap} onPress={() => setOpen((value) => !value)}>
+          <Text style={styles.foldTitle}>{title}</Text>
+          {hint && !open ? (
+            <Text style={styles.foldHint} numberOfLines={1}>
+              {hint}
+            </Text>
+          ) : null}
+          <Text style={styles.foldMark}>{open ? "–" : "+"}</Text>
+        </Pressable>
+        {extra}
+      </View>
+      {open ? <View style={styles.foldBody}>{children}</View> : null}
+    </View>
+  );
+}
+
+function LinesFold() {
+  const styles = useStyles(createStyles);
+  const palette = usePalette();
+  const { ids, has, toggle, clear } = useFavorites();
+  const { setFilter, setSelectedId } = useLive();
+  const trams = routes.filter((route) => route.mode === "tram");
+  const hint = ids
+    .map((id) => routeFor(id)?.shortName ?? id)
+    .slice(0, 4)
+    .join(" ");
+
+  function keep(id: string) {
+    const removing = ids.includes(id);
+    toggle(id);
+    setSelectedId(null);
+    setFilter(removing && ids.length === 1 ? { mode: "all", routeId: null } : { mode: "saved", routeId: null });
+  }
+
+  return (
+    <Fold title="Mes lignes" hint={hint || "Choisir"}>
+      <View style={styles.chips}>
+        {trams.map((route) => {
+          const on = has(route.id);
+          return (
+            <Pressable
+              key={route.id}
+              onPress={() => keep(route.id)}
+              style={[styles.chip, { backgroundColor: on ? route.color : palette.fill }]}>
+              <Text style={[styles.chipText, { color: on ? route.textColor : palette.text }]}>{route.shortName}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      {ids.length > 0 ? (
+        <Pressable
+          onPress={() => {
+            clear();
+            setFilter({ mode: "all", routeId: null });
+          }}>
+          <Text style={styles.link}>Effacer</Text>
+        </Pressable>
+      ) : null}
+    </Fold>
   );
 }
 
@@ -163,13 +241,12 @@ function PlaceCard({ kind, title, place }: { kind: "home" | "work"; title: strin
       />
       <View style={styles.actions}>
         <Pressable style={styles.primary} disabled={busy} onPress={() => run(() => saveAddress(kind, draft))}>
-          {busy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryText}>Enregistrer</Text>}
+          {busy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryText}>OK</Text>}
         </Pressable>
         <Pressable style={styles.secondary} disabled={busy} onPress={() => run(() => saveHere(kind))}>
-          <Text style={styles.secondaryText}>Ma position</Text>
+          <Text style={styles.secondaryText}>Ici</Text>
         </Pressable>
       </View>
-      {place ? <Text style={styles.meta}>{place.address}</Text> : null}
       {message ? <Text style={styles.error}>{message}</Text> : null}
     </View>
   );
@@ -201,9 +278,7 @@ function RideCard({ plan }: { plan: RidePlan }) {
         disrupted={plan.disrupted}
       />
       <Text style={styles.meta}>
-        {plan.walkMinutes} min à pied jusqu'à {plan.boardName}
-        {plan.destination ? ` · direction ${plan.destination}` : ""}
-        {plan.disrupted ? " · ligne signalée en alerte" : ""}
+        {plan.walkMinutes} min · {plan.boardName}
       </Text>
     </Pressable>
   );
@@ -263,11 +338,70 @@ function createStyles(palette: Palette) {
     fontSize: 32,
     fontWeight: "700",
   },
-  intro: {
+  amigo: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: palette.panelSolid,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  fold: {
+    backgroundColor: palette.panelSolid,
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  foldHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingRight: 12,
+  },
+  foldTap: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  foldTitle: {
+    color: palette.text,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  foldHint: {
+    flex: 1,
     color: palette.muted,
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 6,
+    fontSize: 13,
+    textAlign: "right",
+  },
+  foldMark: {
+    color: palette.muted,
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  foldBody: {
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+  },
+  chips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  chip: {
+    minWidth: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 8,
+  },
+  chipText: {
+    fontWeight: "800",
   },
   section: {
     color: palette.text,

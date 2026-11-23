@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
@@ -47,10 +47,17 @@ export default function AmigoScreen() {
   const [results, setResults] = useState<Itinerary[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const searched = useRef(false);
+  const searchRef = useRef<() => void>(() => undefined);
 
   useEffect(() => {
     if (pick.destination) setQuery("");
   }, [pick.destination]);
+
+  useEffect(() => {
+    if (!searched.current) return;
+    searchRef.current();
+  }, [preference]);
 
   function chooseOrigin(kind: (typeof ORIGINS)[number][0]) {
     setOriginKind(kind);
@@ -66,6 +73,7 @@ export default function AmigoScreen() {
   }
 
   async function search() {
+    searched.current = true;
     setBusy(true);
     setMessage(null);
     try {
@@ -77,8 +85,9 @@ export default function AmigoScreen() {
       const plans = planJourney(origin, destination, trips, preference);
       setAnchor({ origin, destination });
       setResults(plans);
-      if (plans.length === 0) setMessage("Aucun trajet trouvé.");
-      else remember(plans[0], origin, destination);
+      if (plans.length === 0) {
+        setMessage(preference === "tram" ? "Aucun tram à moins de 20 min à pied." : "Aucun trajet trouvé.");
+      } else remember(plans[0], origin, destination);
     } catch (error) {
       setResults([]);
       setMessage(error instanceof Error ? error.message : "Recherche impossible.");
@@ -86,6 +95,7 @@ export default function AmigoScreen() {
       setBusy(false);
     }
   }
+  searchRef.current = search;
 
   async function resolveOrigin() {
     if (originKind === "home") {
