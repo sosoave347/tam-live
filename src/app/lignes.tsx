@@ -3,12 +3,15 @@ import { Pressable, SectionList, StyleSheet, Text, TextInput, View } from "react
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { palette } from "@/constants/theme";
+import { type Palette } from "@/constants/theme";
+import { usePalette, useStyles } from "@/lib/appearance";
 import { formatClock } from "@/lib/format";
 import { useLive } from "@/lib/live";
 import { routes, type RouteInfo } from "@/lib/network";
 
 export default function LinesScreen() {
+  const styles = useStyles(createStyles);
+  const palette = usePalette();
   const router = useRouter();
   const { counts, filter, setFilter, setSelectedId, updatedAt, error, refresh } = useLive();
   const [query, setQuery] = useState("");
@@ -88,7 +91,8 @@ export default function LinesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(palette: Palette) {
+  return StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: palette.bg,
@@ -139,7 +143,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   rowActive: {
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: palette.selected,
     borderRadius: 16,
   },
   badge: {
@@ -171,4 +175,5 @@ const styles = StyleSheet.create({
     color: palette.muted,
     marginTop: 24,
   },
-});
+  });
+}

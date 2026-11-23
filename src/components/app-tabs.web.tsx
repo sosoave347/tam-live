@@ -2,9 +2,11 @@ import { Tabs, TabList, TabSlot, TabTrigger, type TabTriggerSlotProps } from "ex
 import type { ComponentProps } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { palette } from "@/constants/theme";
+import { type Palette } from "@/constants/theme";
+import { useStyles } from "@/lib/appearance";
 
 export default function AppTabs() {
+  const styles = useStyles(createStyles);
   return (
     <Tabs>
       <TabSlot style={{ height: "100%" }} />
@@ -29,6 +31,7 @@ export default function AppTabs() {
 }
 
 function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
+  const styles = useStyles(createStyles);
   return (
     <Pressable
       {...(props as ComponentProps<typeof Pressable>)}
@@ -38,7 +41,8 @@ function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(palette: Palette) {
+  return StyleSheet.create({
   bar: {
     position: "absolute",
     left: 0,
@@ -64,4 +68,5 @@ const styles = StyleSheet.create({
   labelActive: {
     color: "#FFFFFF",
   },
-});
+  });
+}

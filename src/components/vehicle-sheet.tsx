@@ -1,11 +1,14 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { palette } from "@/constants/theme";
+import { type Palette } from "@/constants/theme";
+import { usePalette, useStyles } from "@/lib/appearance";
 import { formatAge, formatSpeed, isStale } from "@/lib/format";
 import { useLive } from "@/lib/live";
 import { destinationFor, modeLabel, routeFor } from "@/lib/network";
 
 export function VehicleSheet() {
+  const styles = useStyles(createStyles);
+  const palette = usePalette();
   const { selected, selectedId, setSelectedId, visible, loading } = useLive();
 
   if (!selectedId) {
@@ -64,7 +67,8 @@ export function VehicleSheet() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(palette: Palette) {
+  return StyleSheet.create({
   card: {
     marginHorizontal: 12,
     padding: 14,
@@ -123,4 +127,5 @@ const styles = StyleSheet.create({
     fontSize: 22,
     lineHeight: 24,
   },
-});
+  });
+}

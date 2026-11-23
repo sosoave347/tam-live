@@ -1,19 +1,24 @@
 import { useEffect, useRef, useState } from "react";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import * as Location from "expo-location";
+import { useRouter } from "expo-router";
 import MapView, { Marker, Polyline, type Region } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { AppearanceControl } from "@/components/appearance-control";
 import { FilterBar } from "@/components/filter-bar";
 import { MapGlance } from "@/components/map-glance";
 import { VehicleSheet } from "@/components/vehicle-sheet";
-import { palette } from "@/constants/theme";
+import { type Palette } from "@/constants/theme";
+import { useAppearance, useStyles } from "@/lib/appearance";
+import { inMetropole, readableAddress } from "@/lib/geocode";
 import { isStale } from "@/lib/format";
 import type { LiveVehicle } from "@/lib/gtfs-rt";
 import { useJourney } from "@/lib/journey";
 import { useLive } from "@/lib/live";
 import { useUserLocation } from "@/lib/location";
 import { routeFor } from "@/lib/network";
+import { usePick } from "@/lib/pick";
 import { usePlaces } from "@/lib/places";
 import { busRouteIds, routeColor, routePaths, stopsAlong, tramRouteIds } from "@/lib/shapes";
 
@@ -36,14 +41,21 @@ const DARK_MAP = [
 
 export function NetworkMap() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const styles = useStyles(createStyles);
+  const { scheme } = useAppearance();
   const mapRef = useRef<MapView>(null);
   const fitted = useRef("");
+  const center = useRef({ latitude: MONTPELLIER.latitude, longitude: MONTPELLIER.longitude });
   const { visible, filter, setFilter, selectedId, setSelectedId } = useLive();
-  const { granted } = useUserLocation();
+  const { coords, granted } = useUserLocation();
   const { home, work, focus, clearFocus } = usePlaces();
   const { journey, setJourney } = useJourney();
+  const pick = usePick();
   const [trackMarkers, setTrackMarkers] = useState(true);
   const [followsUser, setFollowsUser] = useState(false);
+  const [placing, setPlacing] = useState(false);
+  const [pinMessage, setPinMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setTrackMarkers(true);
@@ -52,7 +64,7 @@ export function NetworkMap() {
   }, [visible, selectedId, filter.routeId]);
 
   useEffect(() => {
-    if (!mapRef.current || !filter.routeId) return;
+    if (pick.role || !mapRef.current || !filter.routeId) return;
     const points = routePaths(filter.routeId).flat();
     if (points.length === 0) return;
     const key = `shape:${filter.routeId}`;
@@ -62,20 +74,50 @@ export function NetworkMap() {
       edgePadding: { top: 180, right: 40, bottom: 220, left: 40 },
       animated: true,
     });
-  }, [filter.routeId]);
+  }, [filter.routeId, pick.role]);
 
   useEffect(() => {
     const key = `${filter.mode}:${filter.routeId ?? "all"}`;
-    if (!mapRef.current || filter.routeId || visible.length === 0 || fitted.current === key) return;
+    if (pick.role || !mapRef.current || filter.routeId || visible.length === 0 || fitted.current === key) return;
     fitted.current = key;
     fitTo(mapRef.current, visible);
-  }, [visible, filter.mode, filter.routeId]);
+  }, [visible, filter.mode, filter.routeId, pick.role]);
 
   useEffect(() => {
-    if (!focus || !mapRef.current) return;
+    if (pick.role || !focus || !mapRef.current) return;
     mapRef.current.animateToRegion(focus);
     clearFocus();
-  }, [focus, clearFocus]);
+  }, [focus, clearFocus, pick.role]);
+
+  useEffect(() => {
+    if (!pick.role || !mapRef.current) return;
+    const saved = pick.role === "origin" ? pick.origin : pick.destination;
+    const target = saved ?? coords;
+    if (!target) return;
+    mapRef.current.animateToRegion({
+      latitude: target.latitude,
+      longitude: target.longitude,
+      latitudeDelta: 0.012,
+      longitudeDelta: 0.012,
+    });
+  }, [pick.role]);
+
+  async function acceptPin() {
+    const { latitude, longitude } = center.current;
+    if (!inMetropole(latitude, longitude)) {
+      setPinMessage("Hors métropole");
+      return;
+    }
+    setPinMessage(null);
+    setPlacing(true);
+    try {
+      const address = await readableAddress(latitude, longitude, "Point sur la carte");
+      pick.confirm({ address, latitude, longitude });
+      router.push("/amigo");
+    } finally {
+      setPlacing(false);
+    }
+  }
 
   async function centerOnMe() {
     const permission = await Location.requestForegroundPermissionsAsync();
@@ -106,12 +148,16 @@ export function NetworkMap() {
         ref={mapRef}
         style={styles.fill}
         initialRegion={MONTPELLIER}
-        customMapStyle={Platform.OS === "android" ? DARK_MAP : undefined}
+        userInterfaceStyle={scheme === "dark" ? "dark" : "light"}
+        customMapStyle={scheme === "dark" && Platform.OS === "android" ? DARK_MAP : undefined}
         showsUserLocation={granted || followsUser}
         showsMyLocationButton={false}
         toolbarEnabled={false}
         rotateEnabled={false}
-        onPanDrag={() => setFollowsUser(false)}>
+        onPanDrag={() => setFollowsUser(false)}
+        onRegionChange={(region) => {
+          center.current = { latitude: region.latitude, longitude: region.longitude };
+        }}>
         {traceIds(filter, journey?.itinerary.legs.map((leg) => leg.routeId) ?? []).map((routeId) =>
           routePaths(routeId).map((coordinates, index) => (
             <Polyline
@@ -170,23 +216,54 @@ export function NetworkMap() {
         ))}
       </MapView>
 
+      {pick.role ? <View pointerEvents="none" style={styles.reticle} /> : null}
       <View style={[styles.overlay, { paddingTop: insets.top }]} pointerEvents="box-none">
-        <FilterBar />
+        {pick.role ? (
+          <View style={styles.pickCard}>
+            <Text style={styles.pickTitle}>{pick.role === "origin" ? "Départ" : "Arrivée"}</Text>
+            <Text style={styles.pickHint}>{pinMessage ?? "Déplace la carte"}</Text>
+          </View>
+        ) : (
+          <FilterBar />
+        )}
         <View pointerEvents="box-none" style={[styles.bottom, { marginBottom: insets.bottom + 72 }]}>
+          {pick.role ? null : (
+            <View style={styles.appearance}>
+              <AppearanceControl />
+            </View>
+          )}
           <View style={styles.tools}>
             <Pressable style={styles.tool} onPress={centerOnMe}>
               <Text style={styles.toolText}>Moi</Text>
             </Pressable>
-            <Pressable style={styles.tool} onPress={showNetwork}>
-              <Text style={styles.toolText}>Réseau</Text>
-            </Pressable>
-            {journey ? (
-              <Pressable style={styles.tool} onPress={() => setJourney(null)}>
-                <Text style={styles.toolText}>Effacer</Text>
-              </Pressable>
-            ) : null}
+            {pick.role ? (
+              <>
+                <Pressable
+                  style={styles.tool}
+                  onPress={() => {
+                    pick.cancel();
+                    router.push("/amigo");
+                  }}>
+                  <Text style={styles.toolText}>Annuler</Text>
+                </Pressable>
+                <Pressable style={styles.tool} onPress={acceptPin} disabled={placing}>
+                  {placing ? <ActivityIndicator /> : <Text style={styles.toolText}>OK</Text>}
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <Pressable style={styles.tool} onPress={showNetwork}>
+                  <Text style={styles.toolText}>Réseau</Text>
+                </Pressable>
+                {journey ? (
+                  <Pressable style={styles.tool} onPress={() => setJourney(null)}>
+                    <Text style={styles.toolText}>Effacer</Text>
+                  </Pressable>
+                ) : null}
+              </>
+            )}
           </View>
-          {selectedId ? <VehicleSheet /> : <MapGlance />}
+          {pick.role ? null : selectedId ? <VehicleSheet /> : <MapGlance />}
         </View>
       </View>
     </View>
@@ -229,6 +306,7 @@ function VehicleMarker({
   tracksViewChanges: boolean;
   onPress: () => void;
 }) {
+  const styles = useStyles(createStyles);
   const route = routeFor(vehicle.routeId);
   const color = route?.color ?? "#8B93A7";
 
@@ -261,7 +339,8 @@ function VehicleMarker({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(palette: Palette) {
+  return StyleSheet.create({
   fill: {
     flex: 1,
     backgroundColor: palette.bg,
@@ -328,4 +407,42 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderWidth: 2,
   },
-});
+  appearance: {
+    width: 220,
+    alignSelf: "flex-end",
+    marginRight: 12,
+  },
+  pickCard: {
+    marginHorizontal: 12,
+    marginTop: 8,
+    backgroundColor: palette.panel,
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 2,
+  },
+  pickTitle: {
+    color: palette.text,
+    fontSize: 22,
+    fontWeight: "700",
+  },
+  pickHint: {
+    color: palette.muted,
+    fontSize: 13,
+  },
+  reticle: {
+    position: "absolute",
+    left: "50%",
+    top: "50%",
+    width: 28,
+    height: 28,
+    marginLeft: -14,
+    marginTop: -28,
+    borderRadius: 14,
+    backgroundColor: palette.blue,
+    borderWidth: 3,
+    borderColor: "#FFFFFF",
+    zIndex: 2,
+  },
+  });
+}

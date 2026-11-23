@@ -1,11 +1,12 @@
 import { NativeTabs } from "expo-router/native-tabs";
 
-import { palette } from "@/constants/theme";
+import { usePalette } from "@/lib/appearance";
 
 export default function AppTabs() {
+  const palette = usePalette();
   return (
     <NativeTabs
-      backgroundColor="#F8F8F8"
+      backgroundColor={palette.tab}
       indicatorColor={palette.fill}
       iconColor={{ default: palette.muted, selected: palette.blue }}
       labelStyle={{

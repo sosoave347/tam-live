@@ -1,7 +1,8 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 
-import { cardShadow, palette } from "@/constants/theme";
+import { cardShadow, type Palette } from "@/constants/theme";
+import { useStyles } from "@/lib/appearance";
 import { formatClock } from "@/lib/format";
 import { useLive } from "@/lib/live";
 import { routeFor, routes, type RouteMode } from "@/lib/network";
@@ -13,6 +14,7 @@ const MODES: { id: "all" | RouteMode; label: string }[] = [
 ];
 
 export function FilterBar() {
+  const styles = useStyles(createStyles);
   const router = useRouter();
   const { filter, setFilter, setSelectedId, vehicles, visible, loading, error, updatedAt } = useLive();
   const trams = routes.filter((route) => route.mode === "tram");
@@ -97,7 +99,8 @@ export function FilterBar() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(palette: Palette) {
+  return StyleSheet.create({
   wrap: {
     marginHorizontal: 12,
     marginTop: 8,
@@ -210,4 +213,5 @@ const styles = StyleSheet.create({
   statusError: {
     color: palette.danger,
   },
-});
+  });
+}

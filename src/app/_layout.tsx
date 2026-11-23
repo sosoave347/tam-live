@@ -1,12 +1,14 @@
-import { DefaultTheme, ThemeProvider } from "expo-router";
+import { DarkTheme, DefaultTheme, ThemeProvider } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 
 import AppTabs from "@/components/app-tabs";
+import { AppearanceProvider, useAppearance } from "@/lib/appearance";
 import { JourneyProvider } from "@/lib/journey";
 import { LiveProvider } from "@/lib/live";
 import { LocationProvider } from "@/lib/location";
+import { PickProvider } from "@/lib/pick";
 import { PlacesProvider } from "@/lib/places";
 import { ServiceProvider } from "@/lib/service";
 
@@ -18,19 +20,30 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <ThemeProvider value={DefaultTheme}>
+    <AppearanceProvider>
       <PlacesProvider>
         <LocationProvider>
-          <JourneyProvider>
-            <LiveProvider>
-              <ServiceProvider>
-                <StatusBar style="dark" />
-                <AppTabs />
-              </ServiceProvider>
-            </LiveProvider>
-          </JourneyProvider>
+          <PickProvider>
+            <JourneyProvider>
+              <LiveProvider>
+                <ServiceProvider>
+                  <ThemedShell />
+                </ServiceProvider>
+              </LiveProvider>
+            </JourneyProvider>
+          </PickProvider>
         </LocationProvider>
       </PlacesProvider>
+    </AppearanceProvider>
+  );
+}
+
+function ThemedShell() {
+  const { scheme } = useAppearance();
+  return (
+    <ThemeProvider value={scheme === "dark" ? DarkTheme : DefaultTheme}>
+      <StatusBar style={scheme === "dark" ? "light" : "dark"} />
+      <AppTabs />
     </ThemeProvider>
   );
 }

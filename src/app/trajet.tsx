@@ -3,7 +3,9 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, 
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { palette } from "@/constants/theme";
+import { AppearanceControl } from "@/components/appearance-control";
+import { type Palette } from "@/constants/theme";
+import { usePalette, useStyles } from "@/lib/appearance";
 import {
   arrivalsNear,
   formatDistance,
@@ -20,6 +22,7 @@ import { useService } from "@/lib/service";
 import { walkMinutes } from "@/lib/stops";
 
 export default function TripScreen() {
+  const styles = useStyles(createStyles);
   const { coords, granted, request } = useUserLocation();
   const { home, work } = usePlaces();
   const { trips, alerts } = useService();
@@ -32,6 +35,7 @@ export default function TripScreen() {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={styles.kicker}>Ton trajet</Text>
         <Text style={styles.title}>Domicile et travail</Text>
+        <AppearanceControl />
         <Text style={styles.intro}>
           Les conseils suivent ta position, les prochains passages TaM et les alertes de perturbation.
         </Text>
@@ -117,6 +121,8 @@ export default function TripScreen() {
 }
 
 function PlaceCard({ kind, title, place }: { kind: "home" | "work"; title: string; place: SavedPlace | null }) {
+  const styles = useStyles(createStyles);
+  const palette = usePalette();
   const { saveAddress, saveHere, clearPlace } = usePlaces();
   const [draft, setDraft] = useState(place?.address ?? "");
   useEffect(() => {
@@ -150,7 +156,7 @@ function PlaceCard({ kind, title, place }: { kind: "home" | "work"; title: strin
       <TextInput
         value={draft}
         onChangeText={setDraft}
-        placeholder="Adresse à Montpellier"
+        placeholder="Adresse"
         placeholderTextColor={palette.muted}
         style={styles.input}
         autoCorrect={false}
@@ -170,6 +176,7 @@ function PlaceCard({ kind, title, place }: { kind: "home" | "work"; title: strin
 }
 
 function RideCard({ plan }: { plan: RidePlan }) {
+  const styles = useStyles(createStyles);
   const router = useRouter();
   const { setFilter, setSelectedId } = useLive();
   const { focusOn } = usePlaces();
@@ -218,6 +225,7 @@ function ArrivalLine({
   when: string;
   disrupted: boolean;
 }) {
+  const styles = useStyles(createStyles);
   return (
     <View style={styles.arrival}>
       <View style={[styles.badge, { backgroundColor: color }]}>
@@ -232,7 +240,8 @@ function ArrivalLine({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(palette: Palette) {
+  return StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: palette.bg,
@@ -392,4 +401,5 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontVariant: ["tabular-nums"],
   },
-});
+  });
+}

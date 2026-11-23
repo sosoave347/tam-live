@@ -1,5 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
+
+import { geocodeMetropole, readableAddress } from "@/lib/geocode";
 import {
   createContext,
   useCallback,
@@ -67,14 +69,8 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
 
   const saveAddress = useCallback(
     async (kind: keyof Places, query: string) => {
-      const trimmed = query.trim();
-      if (trimmed.length < 3) throw new Error("Indique une adresse plus précise.");
-      const biased = /montpellier/i.test(trimmed) ? trimmed : `${trimmed}, Montpellier`;
-      const results = await Location.geocodeAsync(biased);
-      const hit = results.find((item) => inMetropole(item.latitude, item.longitude)) ?? results[0];
-      if (!hit) throw new Error("Adresse introuvable autour de Montpellier.");
-      const address = await readableAddress(hit.latitude, hit.longitude, trimmed);
-      persist({ ...places, [kind]: { address, latitude: hit.latitude, longitude: hit.longitude } });
+      const hit = await geocodeMetropole(query);
+      persist({ ...places, [kind]: hit });
     },
     [persist, places],
   );
@@ -123,18 +119,3 @@ export function usePlaces() {
   return value;
 }
 
-async function readableAddress(latitude: number, longitude: number, fallback: string) {
-  try {
-    const [place] = await Location.reverseGeocodeAsync({ latitude, longitude });
-    if (!place) return fallback;
-    const line = [place.streetNumber, place.street].filter(Boolean).join(" ");
-    const city = place.city || place.district || "Montpellier";
-    return [line || place.name, city].filter(Boolean).join(", ") || fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function inMetropole(latitude: number, longitude: number) {
-  return latitude > 43.45 && latitude < 43.78 && longitude > 3.62 && longitude < 4.08;
-}

@@ -1,11 +1,14 @@
 import { FlatList, StyleSheet, Text, View } from "react-native";
 
-import { palette } from "@/constants/theme";
+import { type Palette } from "@/constants/theme";
+import { usePalette, useStyles } from "@/lib/appearance";
 import { formatAge, formatSpeed } from "@/lib/format";
 import { useLive } from "@/lib/live";
 import { modeLabel, routeFor } from "@/lib/network";
 
 export function NetworkMap() {
+  const styles = useStyles(createStyles);
+  const palette = usePalette();
   const { visible, loading, error } = useLive();
 
   return (
@@ -48,7 +51,8 @@ export function NetworkMap() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(palette: Palette) {
+  return StyleSheet.create({
   fill: { flex: 1, backgroundColor: palette.bg },
   notice: { color: palette.muted, padding: 16, paddingBottom: 0 },
   error: { color: palette.danger, paddingHorizontal: 16, paddingTop: 8 },
@@ -66,4 +70,5 @@ const styles = StyleSheet.create({
   copy: { flex: 1 },
   title: { color: palette.text, fontWeight: "700" },
   meta: { color: palette.muted, fontSize: 12 },
-});
+  });
+}

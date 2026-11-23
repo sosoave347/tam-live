@@ -1,7 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 
-import { palette } from "@/constants/theme";
+import { type Palette } from "@/constants/theme";
+import { useStyles } from "@/lib/appearance";
 import { ALERT_LABELS } from "@/lib/gtfs-rt";
 import { arrivalsNear, formatDistance, formatWait, plansBetween } from "@/lib/commute";
 import { useUserLocation } from "@/lib/location";
@@ -10,6 +11,7 @@ import { useService } from "@/lib/service";
 import { walkMinutes } from "@/lib/stops";
 
 export function MapGlance() {
+  const styles = useStyles(createStyles);
   const router = useRouter();
   const { coords, granted, request } = useUserLocation();
   const { home, work } = usePlaces();
@@ -90,6 +92,7 @@ export function MapGlance() {
 }
 
 function Badge({ color, text, label }: { color: string; text: string; label: string }) {
+  const styles = useStyles(createStyles);
   return (
     <View style={[styles.badge, { backgroundColor: color }]}>
       <Text style={[styles.badgeText, { color: text }]}>{label}</Text>
@@ -97,7 +100,8 @@ function Badge({ color, text, label }: { color: string; text: string; label: str
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(palette: Palette) {
+  return StyleSheet.create({
   card: {
     marginHorizontal: 12,
     paddingHorizontal: 14,
@@ -168,4 +172,5 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontWeight: "700",
   },
-});
+  });
+}
