@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
@@ -13,6 +13,7 @@ import { useFavorites } from "@/lib/favorites";
 import { inMetropole, readableAddress } from "@/lib/geocode";
 import { isStale } from "@/lib/format";
 import type { LiveVehicle } from "@/lib/gtfs-rt";
+import { drawJourney } from "@/lib/journey-path";
 import { useJourney } from "@/lib/journey";
 import { useLive } from "@/lib/live";
 import { useUserLocation } from "@/lib/location";
@@ -50,6 +51,7 @@ export function NetworkMap() {
   const { coords, granted } = useUserLocation();
   const { home, work, focus, clearFocus } = usePlaces();
   const { journey, setJourney } = useJourney();
+  const drawn = useMemo(() => (journey ? drawJourney(journey) : null), [journey]);
   const pick = usePick();
   const { ids: savedIds } = useFavorites();
   const [trackMarkers, setTrackMarkers] = useState(true);
@@ -61,7 +63,7 @@ export function NetworkMap() {
     setTrackMarkers(true);
     const timer = setTimeout(() => setTrackMarkers(false), 700);
     return () => clearTimeout(timer);
-  }, [visible, selectedId, filter.routeId]);
+  }, [visible, selectedId, filter.routeId, journey?.itinerary.id]);
 
   useEffect(() => {
     if (pick.role || !mapRef.current || !filter.routeId) return;
@@ -78,10 +80,28 @@ export function NetworkMap() {
 
   useEffect(() => {
     const key = `${filter.mode}:${filter.routeId ?? "all"}`;
-    if (pick.role || !mapRef.current || filter.routeId || visible.length === 0 || fitted.current === key) return;
+    if (pick.role || journey || !mapRef.current || filter.routeId || visible.length === 0 || fitted.current === key) return;
     fitted.current = key;
     fitTo(mapRef.current, visible);
-  }, [visible, filter.mode, filter.routeId, pick.role]);
+  }, [visible, filter.mode, filter.routeId, pick.role, journey]);
+
+  useEffect(() => {
+    if (pick.role || !journey || !drawn || !mapRef.current) return;
+    const key = `journey:${journey.itinerary.id}:${journey.origin.latitude.toFixed(4)}:${journey.destination.latitude.toFixed(4)}`;
+    if (fitted.current === key) return;
+    fitted.current = key;
+    const points = [
+      drawn.origin,
+      drawn.destination,
+      ...drawn.markers,
+      ...drawn.walks.flat(),
+      ...drawn.rides.flatMap((ride) => ride.coordinates.filter((_, index) => index % 3 === 0)),
+    ];
+    mapRef.current.fitToCoordinates(points, {
+      edgePadding: { top: 170, right: 36, bottom: 260, left: 36 },
+      animated: true,
+    });
+  }, [journey, drawn, pick.role]);
 
   useEffect(() => {
     if (pick.role || !focus || !mapRef.current) return;
@@ -158,13 +178,15 @@ export function NetworkMap() {
         onRegionChange={(region) => {
           center.current = { latitude: region.latitude, longitude: region.longitude };
         }}>
-        {traceIds(filter, journey?.itinerary.legs.map((leg) => leg.routeId) ?? [], savedIds).map((routeId) =>
+        {journey
+          ? null
+          : traceIds(filter, [], savedIds).map((routeId) =>
           routePaths(routeId).map((coordinates, index) => (
             <Polyline
               key={`${routeId}-${index}`}
               coordinates={coordinates}
               strokeColor={routeColor(routeId)}
-              strokeWidth={filter.routeId === routeId || journey?.itinerary.legs.some((leg) => leg.routeId === routeId) ? 6 : 3}
+              strokeWidth={filter.routeId === routeId ? 6 : 3}
               tappable
               onPress={() => {
                 const route = routeFor(routeId);
@@ -174,14 +196,59 @@ export function NetworkMap() {
             />
           )),
         )}
-        {filter.routeId
+        {drawn
+          ? drawn.walks.map((coordinates, index) => (
+              <Polyline
+                key={`walk-${index}`}
+                coordinates={coordinates}
+                strokeColor="#8E8E93"
+                strokeWidth={4}
+                lineDashPattern={[1, 8]}
+              />
+            ))
+          : null}
+        {drawn
+          ? drawn.rides.map((ride) => (
+              <Polyline key={ride.key} coordinates={ride.coordinates} strokeColor={ride.color} strokeWidth={6} />
+            ))
+          : null}
+        {drawn ? (
+          <Marker coordinate={drawn.origin} title="Départ" anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={trackMarkers}>
+            <View style={styles.originDot} />
+          </Marker>
+        ) : null}
+        {drawn
+          ? drawn.markers.map((marker) => (
+              <Marker
+                key={marker.key}
+                coordinate={marker}
+                title={marker.title}
+                description={marker.subtitle}
+                anchor={{ x: 0.5, y: 0.5 }}
+                tracksViewChanges={trackMarkers}>
+                {marker.label ? (
+                  <View style={[styles.stepPill, { backgroundColor: marker.color }]}>
+                    <Text style={[styles.stepPillText, { color: marker.textColor }]}>{marker.label}</Text>
+                  </View>
+                ) : (
+                  <View style={[styles.alightDot, { borderColor: marker.color }]} />
+                )}
+              </Marker>
+            ))
+          : null}
+        {drawn ? (
+          <Marker coordinate={drawn.destination} title="Arrivée" description={journey?.destination.address} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={trackMarkers}>
+            <View style={styles.destDot} />
+          </Marker>
+        ) : null}
+        {filter.routeId && !journey
           ? stopsAlong(filter.routeId).map((stop) => (
               <Marker key={`stop-${filter.routeId}-${stop.latitude}-${stop.longitude}`} coordinate={stop} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={trackMarkers}>
                 <View style={[styles.stopDot, { borderColor: routeColor(filter.routeId ?? "") }]} />
               </Marker>
             ))
           : null}
-        {home ? (
+        {home && !journey ? (
           <Marker
             coordinate={{ latitude: home.latitude, longitude: home.longitude }}
             title="Domicile"
@@ -189,15 +256,7 @@ export function NetworkMap() {
             pinColor="#007AFF"
           />
         ) : null}
-        {journey ? (
-          <Marker
-            coordinate={journey.destination}
-            title="Arrivée"
-            description={journey.destination.address}
-            pinColor="#FF3B30"
-          />
-        ) : null}
-        {work ? (
+        {work && !journey ? (
           <Marker
             coordinate={{ latitude: work.latitude, longitude: work.longitude }}
             title="Travail"
@@ -245,7 +304,21 @@ export function NetworkMap() {
                 </Pressable>
           </View>
           ) : null}
-          {pick.role || !selectedId ? null : <VehicleSheet />}
+          {pick.role || !journey ? null : (
+            <View style={styles.journeyCard}>
+              <Text style={styles.journeyTime}>
+                {journey.itinerary.departAt} – {journey.itinerary.arriveAt}
+              </Text>
+              <Text style={styles.journeyMeta} numberOfLines={1}>
+                {journey.itinerary.totalMin} min
+                {journey.itinerary.legs.length === 0
+                  ? " · à pied"
+                  : ` · ${journey.itinerary.legs.map((leg) => leg.shortName).join(" ")}`}
+                {journey.itinerary.walkMin > 0 ? ` · ${journey.itinerary.walkMin} min à pied` : ""}
+              </Text>
+            </View>
+          )}
+          {pick.role || journey || !selectedId ? null : <VehicleSheet />}
         </View>
       </View>
     </View>
@@ -412,6 +485,61 @@ function createStyles(palette: Palette) {
   pickHint: {
     color: palette.muted,
     fontSize: 13,
+  },
+  journeyCard: {
+    marginHorizontal: 12,
+    backgroundColor: palette.panel,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 2,
+  },
+  journeyTime: {
+    color: palette.text,
+    fontSize: 17,
+    fontWeight: "700",
+    fontVariant: ["tabular-nums"],
+  },
+  journeyMeta: {
+    color: palette.muted,
+    fontSize: 13,
+  },
+  originDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: palette.blue,
+    borderWidth: 3,
+    borderColor: "#FFFFFF",
+  },
+  destDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: "#FF3B30",
+    borderWidth: 3,
+    borderColor: "#FFFFFF",
+  },
+  alightDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 3,
+  },
+  stepPill: {
+    minWidth: 26,
+    height: 22,
+    borderRadius: 7,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 6,
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+  },
+  stepPillText: {
+    fontSize: 12,
+    fontWeight: "800",
   },
   reticle: {
     position: "absolute",

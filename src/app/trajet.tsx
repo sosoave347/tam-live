@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppearanceControl } from "@/components/appearance-control";
+import { DepartWhen, departInstant, nextQuarter } from "@/components/depart-when";
 import { ItineraryCard } from "@/components/itinerary-card";
 import { TripSearch } from "@/components/trip-search";
 import { type Palette } from "@/constants/theme";
@@ -28,23 +29,30 @@ export default function TripScreen() {
   const styles = useStyles(createStyles);
   const router = useRouter();
   const { coords, granted, request } = useUserLocation();
-  const { home, work, focusOn } = usePlaces();
+  const { home, work } = usePlaces();
   const { setJourney } = useJourney();
   const { trips, alerts } = useService();
   const here = coords;
   const nearby = here ? arrivalsNear(here, trips, alerts) : [];
   const nearest = nearby[0];
   const [aroundOpen, setAroundOpen] = useState(false);
-  const commuteFrom = here ?? home;
+  const [planned, setPlanned] = useState(false);
+  const [dayOffset, setDayOffset] = useState(0);
+  const [clock, setClock] = useState(nextQuarter);
+  const when = planned ? departInstant(dayOffset, clock) : null;
+  const past = when != null && when.getTime() < Date.now() - 60_000;
+  const commuteFrom = planned ? (home ?? here) : (here ?? home);
   const commute = useMemo(
-    () => (commuteFrom && work ? planJourney(commuteFrom, work, trips, "fast") : []),
-    [commuteFrom?.latitude, commuteFrom?.longitude, work, trips],
+    () =>
+      commuteFrom && work && !past
+        ? planJourney(commuteFrom, work, trips, "fast", Date.now() / 1000, when ? when.getTime() / 1000 : null)
+        : [],
+    [commuteFrom?.latitude, commuteFrom?.longitude, work, trips, past, when?.getTime()],
   );
 
   function openCommute(itinerary: Itinerary) {
     if (!commuteFrom || !work) return;
     setJourney({ itinerary, origin: commuteFrom, destination: work });
-    focusOn(work.latitude, work.longitude);
     router.push("/");
   }
 
@@ -125,20 +133,18 @@ export default function TripScreen() {
         </View>
 
         <Section title="Vers le travail">
+          <DepartWhen planned={planned} dayOffset={dayOffset} clock={clock} onPlanned={setPlanned} onDay={setDayOffset} onClock={setClock} />
           {!work ? (
             <Text style={styles.meta}>Ajoute le travail.</Text>
+          ) : past ? (
+            <Text style={styles.meta}>Cette heure est passée.</Text>
           ) : !commuteFrom ? (
             <Text style={styles.meta}>Active la position, ou enregistre le domicile.</Text>
           ) : commute.length === 0 ? (
-            <Text style={styles.meta}>Aucun trajet depuis ta position.</Text>
+            <Text style={styles.meta}>Aucun trajet.</Text>
           ) : (
             commute.map((itinerary) => (
-              <ItineraryCard
-                key={itinerary.id}
-                itinerary={itinerary}
-                live={Boolean(here)}
-                onPress={() => openCommute(itinerary)}
-              />
+              <ItineraryCard key={itinerary.id} itinerary={itinerary} onPress={() => openCommute(itinerary)} />
             ))
           )}
         </Section>

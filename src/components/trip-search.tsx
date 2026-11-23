@@ -4,6 +4,7 @@ import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 
 import { ItineraryCard } from "@/components/itinerary-card";
+import { DepartWhen, departInstant, nextQuarter } from "@/components/depart-when";
 import { type Palette } from "@/constants/theme";
 import { planJourney, type Itinerary, type TripPreference } from "@/lib/amigo";
 import { usePalette, useStyles } from "@/lib/appearance";
@@ -33,7 +34,7 @@ export function TripSearch() {
   const palette = usePalette();
   const styles = useStyles(createStyles);
   const { coords, request } = useUserLocation();
-  const { home, work, focusOn } = usePlaces();
+  const { home, work } = usePlaces();
   const { trips } = useService();
   const { setJourney } = useJourney();
   const pick = usePick();
@@ -48,6 +49,9 @@ export function TripSearch() {
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [hereLabel, setHereLabel] = useState<string | null>(null);
+  const [planned, setPlanned] = useState(false);
+  const [dayOffset, setDayOffset] = useState(0);
+  const [clock, setClock] = useState(nextQuarter);
   const searched = useRef(false);
   const searchRef = useRef<() => void>(() => undefined);
 
@@ -69,7 +73,7 @@ export function TripSearch() {
   useEffect(() => {
     if (!searched.current) return;
     searchRef.current();
-  }, [preference]);
+  }, [preference, planned, dayOffset, clock]);
 
   function chooseOrigin(kind: (typeof ORIGINS)[number][0]) {
     setOriginKind(kind);
@@ -91,7 +95,14 @@ export function TripSearch() {
     try {
       const origin = await resolveOrigin();
       const destination = pick.destination && query.trim().length === 0 ? pick.destination : await geocodeMetropole(query, origin);
-      const plans = planJourney(origin, destination, trips, preference);
+      const when = planned ? departInstant(dayOffset, clock) : null;
+      if (when && when.getTime() < Date.now() - 60_000) {
+        setResults([]);
+        setAnchor(null);
+        setMessage("Cette heure est passée.");
+        return;
+      }
+      const plans = planJourney(origin, destination, trips, preference, Date.now() / 1000, when ? when.getTime() / 1000 : null);
       setAnchor({ origin, destination });
       setResults(plans);
       setMessage(plans.length === 0 ? "Aucun trajet depuis ce point." : null);
@@ -128,7 +139,6 @@ export function TripSearch() {
   function open(itinerary: Itinerary) {
     if (!anchor) return;
     setJourney({ itinerary, origin: anchor.origin, destination: anchor.destination });
-    focusOn(anchor.destination.latitude, anchor.destination.longitude);
     router.push("/");
   }
 
@@ -181,6 +191,7 @@ export function TripSearch() {
             <Text style={pick.destination && query.trim().length === 0 ? styles.segmentTextOn : styles.segmentText}>Point</Text>
           </Pressable>
         </View>
+        <DepartWhen planned={planned} dayOffset={dayOffset} clock={clock} onPlanned={setPlanned} onDay={setDayOffset} onClock={setClock} />
         <View style={styles.segment}>
           {PREFERENCES.map((item) => (
             <Pressable
@@ -197,7 +208,7 @@ export function TripSearch() {
       </View>
       {message ? <Text style={styles.error}>{message}</Text> : null}
       {results.map((itinerary) => (
-        <ItineraryCard key={itinerary.id} itinerary={itinerary} live={originKind === "here"} onPress={() => open(itinerary)} />
+        <ItineraryCard key={itinerary.id} itinerary={itinerary} onPress={() => open(itinerary)} />
       ))}
     </View>
   );
