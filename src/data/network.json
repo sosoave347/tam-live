@@ -1,0 +1,534 @@
+{
+  "source": "https://gtfsproxy.e-tam.fr/COMMON/GTFS.zip",
+  "license": "ODbL",
+  "attribution": "Montpellier Méditerranée Métropole / TaM",
+  "routes": [
+    {
+      "id": "1",
+      "shortName": "1",
+      "longName": "Mosson - Gare Sud de France",
+      "mode": "tram",
+      "color": "#005CA9",
+      "textColor": "#FFFFFF",
+      "directions": {
+        "0": "Gare Sud France",
+        "1": "Mosson"
+      }
+    },
+    {
+      "id": "2",
+      "shortName": "2",
+      "longName": "St-Jean de Védas Centre - Jacou",
+      "mode": "tram",
+      "color": "#EF7D00",
+      "textColor": "#FFFFFF",
+      "directions": {
+        "0": "Jacou",
+        "1": "Sabines"
+      }
+    },
+    {
+      "id": "3",
+      "shortName": "3",
+      "longName": "Juvignac - Lattes / Pérols",
+      "mode": "tram",
+      "color": "#C8D400",
+      "textColor": "#000000",
+      "directions": {
+        "0": "Juvignac",
+        "1": "Perols Etang"
+      }
+    },
+    {
+      "id": "4",
+      "shortName": "4",
+      "longName": "Garcia Lorca - Garcia Lorca",
+      "mode": "tram",
+      "color": "#4B2A0E",
+      "textColor": "#FFFFFF",
+      "directions": {
+        "0": "Garcia Lorca",
+        "1": "Garcia Lorca"
+      }
+    },
+    {
+      "id": "5",
+      "shortName": "5",
+      "longName": "Clapiers - Grès de Montpellier",
+      "mode": "tram",
+      "color": "#287431",
+      "textColor": "#FFFFFF",
+      "directions": {
+        "0": "Clapiers",
+        "1": "Gres de M."
+      }
+    },
+    {
+      "id": "6",
+      "shortName": "6",
+      "longName": "Euromédecine - Albert 1er",
+      "mode": "bus",
+      "color": "#E94190",
+      "textColor": "#FFFFFF",
+      "directions": {
+        "0": "Euromedecine",
+        "1": "ALBERT 1er JARD"
+      }
+    },
+    {
+      "id": "7",
+      "shortName": "7",
+      "longName": "Hôtel du Département - Albert 1e",
+      "mode": "bus",
+      "color": "#A877B2",
+      "textColor": "#FFFFFF",
+      "directions": {
+        "0": "ALBERT 1er JARD",
+        "1": "H. Departement"
+      }
+    },
+    {
+      "id": "8",
+      "shortName": "8",
+      "longName": "Centrayrargues - Gare Saint-Roch",
+      "mode": "bus",
+      "color": "#FFDC00",
+      "textColor": "#000000",
+      "directions": {
+        "0": "Gare Saint-Roch",
+        "1": "Centrayrargues"
+      }
+    },
+    {
+      "id": "10",
+      "shortName": "10",
+      "longName": "Cimetière St-Lazare - Celleneuve",
+      "mode": "bus",
+      "color": "#FBBA00",
+      "textColor": "#000000",
+      "directions": {
+        "0": "Celleneuve",
+        "1": "Cim St Lazare"
+      }
+    },
+    {
+      "id": "11",
+      "shortName": "11",
+      "longName": "La Martelle - Tournezy",
+      "mode": "bus",
+      "color": "#5FC3E1",
+      "textColor": "#000000",
+      "directions": {
+        "0": "Tournezy",
+        "1": "La Martelle"
+      }
+    },
+    {
+      "id": "13",
+      "shortName": "13",
+      "longName": "Occitanie - Charles de Gaulle",
+      "mode": "bus",
+      "color": "#941B80",
+      "textColor": "#FFFFFF",
+      "directions": {
+        "0": "Ch Gaulle V Aig",
+        "1": "Occitanie"
+      }
+    },
+    {
+      "id": "14",
+      "shortName": "14",
+      "longName": "Léon Blum - Place de l'Europe",
+      "mode": "bus",
+      "color": "#F08178",
+      "textColor": "#000000",
+      "directions": {
+        "0": "Pl. de L'Europe",
+        "1": "Leon Blum"
+      }
+    },
+    {
+      "id": "15",
+      "shortName": "15",
+      "longName": "Gare Sud de France - Sabines",
+      "mode": "bus",
+      "color": "#BF0D0D",
+      "textColor": "#FFFFFF",
+      "directions": {
+        "0": "Sabines",
+        "1": "Gare Sud France"
+      }
+    },
+    {
+      "id": "16",
+      "shortName": "16",
+      "longName": "Ch. de Gaulle - Port Marianne",
+      "mode": "bus",
+      "color": "#009EE2",
+      "textColor": "#FFFFFF",
+      "directions": {
+        "0": "Port Marianne",
+        "1": "Ch. de Gaulle"
+      }
+    },
+    {
+      "id": "17",
+      "shortName": "17",
+      "longName": "Les Bouisses - Gare Saint-Roch",
+      "mode": "bus",
+      "color": "#BDAE00",
+      "textColor": "#000000",
+      "directions": {
+        "0": "Gare Saint-Roch",
+        "1": "Les Bouisses"
+      }
+    },
+    {
+      "id": "18",
+      "shortName": "18",
+      "longName": "Sabines - Maurin - Lattes Centre",
+      "mode": "bus",
+      "color": "#E84E24",
+      "textColor": "#FFFFFF",
+      "directions": {
+        "0": "Sabines",
+        "1": "Lattes Centre"
+      }
+    },
+    {
+      "id": "19",
+      "shortName": "19",
+      "longName": "P. Coubertin - Hôtel Département",
+      "mode": "bus",
+      "color": "#FFD400",
+      "textColor": "#000000",
+      "directions": {
+        "0": "H. Departement",
+        "1": "Coubertin"
+      }
+    },
+    {
+      "id": "20",
+      "shortName": "20",
+      "longName": "St-Jean le Sec - Parc Font-Colombe",
+      "mode": "bus",
+      "color": "#009EE2",
+      "textColor": "#FFFFFF",
+      "directions": {
+        "0": "Parc Font-Colombe",
+        "1": "Saint-Jean le Sec"
+      }
+    },
+    {
+      "id": "21",
+      "shortName": "21",
+      "longName": "ND de Sablassou - Vendargues",
+      "mode": "bus",
+      "color": "#FFE500",
+      "textColor": "#000000",
+      "directions": {
+        "0": "Versant",
+        "1": "Notre-Dame de Sablassou"
+      }
+    },
+    {
+      "id": "22",
+      "shortName": "22",
+      "longName": "Cirad de Baillarguet - Clapiers - Jacou",
+      "mode": "bus",
+      "color": "#81CFF4",
+      "textColor": "#000000",
+      "directions": {
+        "0": "Collège  P. M. France",
+        "1": "Cirad de Baillarguet"
+      }
+    },
+    {
+      "id": "23",
+      "shortName": "23",
+      "longName": "Clapiers - Prades-le-Lez",
+      "mode": "bus",
+      "color": "#EF7D00",
+      "textColor": "#FFFFFF",
+      "directions": {
+        "0": "Clapiers",
+        "1": "Clapiers"
+      }
+    },
+    {
+      "id": "24",
+      "shortName": "24",
+      "longName": "Grabels: La Valsière - Le Pradas",
+      "mode": "bus",
+      "color": "#A61680",
+      "textColor": "#FFFFFF",
+      "directions": {
+        "0": "Le Pradas",
+        "1": "La Valsière"
+      }
+    },
+    {
+      "id": "25",
+      "shortName": "25",
+      "longName": "Courpouyran - Le Martinet",
+      "mode": "bus",
+      "color": "#904E00",
+      "textColor": "#FFFFFF",
+      "directions": {
+        "0": "Courpouyran",
+        "1": "Le Martinet"
+      }
+    },
+    {
+      "id": "26",
+      "shortName": "26",
+      "longName": "Montferrier-sur-Lez - Montferrier Olympe/Cirad",
+      "mode": "bus",
+      "color": "#306980",
+      "textColor": "#FFFFFF",
+      "directions": {
+        "0": "Olympe",
+        "1": "Montferrier -sur-Lez"
+      }
+    },
+    {
+      "id": "27",
+      "shortName": "27",
+      "longName": "Stade de Montaud- Gare de Baillargues",
+      "mode": "bus",
+      "color": "#914F00",
+      "textColor": "#FFFFFF",
+      "directions": {
+        "0": "Baillargues",
+        "1": "Montaud"
+      }
+    },
+    {
+      "id": "28",
+      "shortName": "28",
+      "longName": "Boirargues - Cabanes Perols",
+      "mode": "bus",
+      "color": "#F29100",
+      "textColor": "#FFFFFF",
+      "directions": {
+        "0": "Perols Cabanes",
+        "1": "Boirargues"
+      }
+    },
+    {
+      "id": "30",
+      "shortName": "30",
+      "longName": "Le Crès Jean Jaurès / Le Crès Maumarin",
+      "mode": "bus",
+      "color": "#F4B4D2",
+      "textColor": "#000000",
+      "directions": {
+        "0": "Via Domitia",
+        "1": "Via Domitia"
+      }
+    },
+    {
+      "id": "31",
+      "shortName": "31",
+      "longName": "ND Sablassou - Baillargues via Sussargues/StGeniès",
+      "mode": "bus",
+      "color": "#8A9400",
+      "textColor": "#FFFFFF",
+      "directions": {
+        "0": "Baillargues",
+        "1": "Nd de Sablassou"
+      }
+    },
+    {
+      "id": "32",
+      "shortName": "32",
+      "longName": "Garcia Lorca - Villeneuve-lès-M./Saint-Jean de V.",
+      "mode": "bus",
+      "color": "#008288",
+      "textColor": "#FFFFFF",
+      "directions": {
+        "0": "Saint-Jean le Sec",
+        "1": "Garcia Lorca"
+      }
+    },
+    {
+      "id": "33",
+      "shortName": "33",
+      "longName": "St-Jean de Védas (Centre)-Fabrègues",
+      "mode": "bus",
+      "color": "#C7D300",
+      "textColor": "#000000",
+      "directions": {
+        "0": "Lou Paillas",
+        "1": "St Jean Centre"
+      }
+    },
+    {
+      "id": "34",
+      "shortName": "34",
+      "longName": "Mosson - Cournonsec",
+      "mode": "bus",
+      "color": "#729957",
+      "textColor": "#FFFFFF",
+      "directions": {
+        "0": "Les Clavoux",
+        "1": "Mosson"
+      }
+    },
+    {
+      "id": "35",
+      "shortName": "35",
+      "longName": "Ch. de Gaulle-A.Rouge/Aires",
+      "mode": "bus",
+      "color": "#164194",
+      "textColor": "#FFFFFF",
+      "directions": {
+        "0": "Aube Rouge",
+        "1": "Ch. de Gaulle"
+      }
+    },
+    {
+      "id": "36",
+      "shortName": "36",
+      "longName": "Charles de Gaulle - Cap Alpha - Stade de Montaud",
+      "mode": "bus",
+      "color": "#E20613",
+      "textColor": "#FFFFFF",
+      "directions": {
+        "0": "Charles de Gaulle",
+        "1": "Stade de Montaud"
+      }
+    },
+    {
+      "id": "38",
+      "shortName": "38",
+      "longName": "Grés de Montpellier - Cournonsec",
+      "mode": "bus",
+      "color": "#8C004C",
+      "textColor": "#FFFFFF",
+      "directions": {
+        "0": "Les Clavoux",
+        "1": "Grés de Montpellier"
+      }
+    },
+    {
+      "id": "40",
+      "shortName": "40",
+      "longName": "Mosson - St-Georges d'Orques",
+      "mode": "bus",
+      "color": "#FFDC00",
+      "textColor": "#000000",
+      "directions": {
+        "0": "Mijoulan",
+        "1": "Mosson"
+      }
+    },
+    {
+      "id": "42",
+      "shortName": "42",
+      "longName": "Mosson - Murviel lès Montpellier",
+      "mode": "bus",
+      "color": "#E5007E",
+      "textColor": "#FFFFFF",
+      "directions": {
+        "0": "La Rouvière Longue",
+        "1": "Mosson"
+      }
+    },
+    {
+      "id": "43",
+      "shortName": "43",
+      "longName": "St-Jean-le-Sec - Saussan - Pignan",
+      "mode": "bus",
+      "color": "#FABC43",
+      "textColor": "#000000",
+      "directions": {
+        "0": "La Bornière",
+        "1": "St Jean Centre"
+      }
+    },
+    {
+      "id": "44",
+      "shortName": "44",
+      "longName": "Navette Gare Villeneuve-les-M.",
+      "mode": "bus",
+      "color": "#F193BD",
+      "textColor": "#000000",
+      "directions": {
+        "0": "Gare Villeneuve lès-Maguelone",
+        "1": "Arnel"
+      }
+    },
+    {
+      "id": "46",
+      "shortName": "46",
+      "longName": "ND Sablassou - Castries College",
+      "mode": "bus",
+      "color": "#7A1C79",
+      "textColor": "#FFFFFF",
+      "directions": {
+        "0": "Collège Les Pins",
+        "1": "Notre-Dame de Sablassou"
+      }
+    },
+    {
+      "id": "47",
+      "shortName": "47",
+      "longName": "Université Montpellier Triolet",
+      "mode": "bus",
+      "color": "#B5C952",
+      "textColor": "#000000",
+      "directions": {
+        "0": "Univ.  Sc. et Lettres"
+      }
+    },
+    {
+      "id": "52",
+      "shortName": "52",
+      "longName": "Pl. de France - Cim. St.Etienne",
+      "mode": "bus",
+      "color": "#FFE500",
+      "textColor": "#000000",
+      "directions": {
+        "0": "Cim. St-Eti",
+        "1": "Pl de France"
+      }
+    },
+    {
+      "id": "53",
+      "shortName": "53",
+      "longName": "Sabines - Saint-Cléophas",
+      "mode": "bus",
+      "color": "#95C11F",
+      "textColor": "#000000",
+      "directions": {
+        "0": "Saint-Cleophas",
+        "1": "Sabines"
+      }
+    },
+    {
+      "id": "A",
+      "shortName": "A",
+      "longName": "ND de Sablassou-Pl. de l'Europe",
+      "mode": "bus",
+      "color": "#841932",
+      "textColor": "#FFFFFF",
+      "directions": {
+        "0": "Nd de Sablassou",
+        "1": "Pl. de L'Europe"
+      }
+    },
+    {
+      "id": "Amigo",
+      "shortName": "Amigo",
+      "longName": "Amigo",
+      "mode": "bus",
+      "color": "#1C1B51",
+      "textColor": "#FFFFFF",
+      "directions": {
+        "0": "Les Marestelles",
+        "1": "Le Grand M"
+      }
+    }
+  ]
+}
