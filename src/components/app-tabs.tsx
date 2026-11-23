@@ -17,6 +17,10 @@ export default function AppTabs() {
         <NativeTabs.Trigger.Label>Carte</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="map.fill" md="map" />
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="trajet">
+        <NativeTabs.Trigger.Label>Trajet</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="figure.walk" md="directions_walk" />
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="lignes">
         <NativeTabs.Trigger.Label>Lignes</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="list.bullet" md="format_list_bulleted" />

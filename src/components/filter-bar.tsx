@@ -96,7 +96,8 @@ const styles = StyleSheet.create({
   wrap: {
     marginHorizontal: 12,
     marginTop: 8,
-    padding: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     borderRadius: 22,
     backgroundColor: palette.panel,
     gap: 10,
@@ -114,7 +115,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: palette.text,
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: "700",
   },
   stats: {

@@ -5,6 +5,9 @@ export const palette = {
   text: "#F4F7FB",
   muted: "#93A0B4",
   danger: "#FF8B7B",
+  warn: "#F5C16C",
+  ok: "#8EE4C1",
+  line: "rgba(255,255,255,0.08)",
 } as const;
 
 export const Colors = {

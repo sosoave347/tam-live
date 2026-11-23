@@ -64,6 +64,46 @@ def main():
     OUTPUT.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"{len(routes)} lignes écrites dans {OUTPUT}")
 
+    trip_route = {trip["trip_id"]: trip["route_id"] for trip in rows("trips.txt")}
+    served = defaultdict(set)
+    for stop_time in rows("stop_times.txt"):
+        route_id = trip_route.get(stop_time["trip_id"])
+        if route_id:
+            served[stop_time["stop_id"]].add(route_id)
+
+    stops = []
+    for stop in rows("stops.txt"):
+        if (stop.get("location_type") or "0") not in ("0", ""):
+            continue
+        name = (stop.get("stop_name") or "").strip()
+        if not name:
+            continue
+        stops.append(
+            {
+                "id": stop["stop_id"],
+                "name": name,
+                "lat": round(float(stop["stop_lat"]), 5),
+                "lon": round(float(stop["stop_lon"]), 5),
+            }
+        )
+
+    def route_sort(route_id):
+        return (not route_id.isdigit(), int(route_id) if route_id.isdigit() else 0, route_id)
+
+    stops_path = OUTPUT.parent / "stops.json"
+    stops_path.write_text(
+        json.dumps(
+            {
+                "stops": stops,
+                "routesByStop": {stop_id: sorted(route_ids, key=route_sort) for stop_id, route_ids in served.items()},
+            },
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ),
+        encoding="utf-8",
+    )
+    print(f"{len(stops)} arrêts écrits dans {stops_path}")
+
 
 if __name__ == "__main__":
     main()

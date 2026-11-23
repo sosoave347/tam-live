@@ -13,6 +13,9 @@ export default function AppTabs() {
           <TabTrigger name="carte" href="/" asChild>
             <TabButton>Carte</TabButton>
           </TabTrigger>
+          <TabTrigger name="trajet" href="/trajet" asChild>
+            <TabButton>Trajet</TabButton>
+          </TabTrigger>
           <TabTrigger name="lignes" href="/lignes" asChild>
             <TabButton>Lignes</TabButton>
           </TabTrigger>

@@ -180,6 +180,178 @@ export function decodeVehicleFeed(buffer: Uint8Array): VehicleFeed {
   return { timestamp, vehicles };
 }
 
+const TRIP_UPDATES_URL = "https://gtfsproxy.e-tam.fr/COMMON/TripUpdate.pb";
+const ALERTS_URL = "https://gtfsproxy.e-tam.fr/COMMON/Alert.pb";
+
+export type LiveTrip = {
+  routeId: string;
+  directionId?: number;
+  passes: { stopId: string; time: number }[];
+};
+
+export type ServiceAlert = {
+  id: string;
+  effect?: number;
+  header: string;
+  description: string;
+  routeIds: string[];
+};
+
+export const ALERT_LABELS: Record<number, string> = {
+  1: "Interruption",
+  2: "Service réduit",
+  3: "Retards importants",
+  4: "Déviation",
+  5: "Service supplémentaire",
+  6: "Service modifié",
+  7: "Perturbation",
+  8: "Perturbation",
+  9: "Arrêt déplacé",
+  10: "Information",
+  11: "Accessibilité",
+};
+
+function translation(buffer: Uint8Array) {
+  let fallback = "";
+  let french = "";
+  walk(buffer, (field) => {
+    if (field.num !== 1 || field.wire !== 2) return;
+    let value = "";
+    let language = "";
+    walk(field.data, (part) => {
+      if (part.num === 1 && part.wire === 2) value = text(part.data);
+      if (part.num === 2 && part.wire === 2) language = text(part.data).toLowerCase();
+    });
+    if (!fallback) fallback = value;
+    if (language.startsWith("fr")) french = value;
+  });
+  return (french || fallback).trim();
+}
+
+function decodeStopPass(buffer: Uint8Array) {
+  let stopId = "";
+  let time: number | undefined;
+  let skipped = false;
+  walk(buffer, (field) => {
+    if (field.num === 4 && field.wire === 2) stopId = text(field.data);
+    if (field.num === 5 && field.wire === 0) skipped = field.varint === 1n;
+    if ((field.num === 2 || field.num === 3) && field.wire === 2) {
+      let eventTime: number | undefined;
+      walk(field.data, (event) => {
+        if (event.num === 2 && event.wire === 0) eventTime = uint(event.varint);
+      });
+      if (eventTime != null && (field.num === 3 || time == null)) time = eventTime;
+    }
+  });
+  if (skipped || !stopId || time == null) return null;
+  return { stopId, time };
+}
+
+export function decodeTripFeed(buffer: Uint8Array, nowSeconds = Date.now() / 1000): LiveTrip[] {
+  const horizon = nowSeconds + 3 * 60 * 60;
+  const trips: LiveTrip[] = [];
+  walk(buffer, (field) => {
+    if (field.num !== 2 || field.wire !== 2) return;
+    let update: Uint8Array | null = null;
+    walk(field.data, (entity) => {
+      if (entity.num === 3 && entity.wire === 2) update = entity.data;
+    });
+    if (!update) return;
+    let routeId = "";
+    let directionId: number | undefined;
+    let canceled = false;
+    const passes: { stopId: string; time: number }[] = [];
+    walk(update, (part) => {
+      if (part.num === 1 && part.wire === 2) {
+        const trip = decodeTrip(part.data);
+        routeId = trip.routeId ?? "";
+        directionId = trip.directionId;
+        walk(part.data, (tripField) => {
+          if (tripField.num === 4 && tripField.wire === 0 && tripField.varint === 3n) canceled = true;
+        });
+      }
+      if (part.num === 2 && part.wire === 2) {
+        const pass = decodeStopPass(part.data);
+        if (pass && pass.time >= nowSeconds - 30 && pass.time <= horizon) passes.push(pass);
+      }
+    });
+    if (canceled || !routeId || passes.length === 0) return;
+    passes.sort((a, b) => a.time - b.time);
+    trips.push({ routeId, directionId, passes });
+  });
+  return trips;
+}
+
+function activeAlert(buffer: Uint8Array, nowSeconds: number) {
+  const ranges: { start?: number; end?: number }[] = [];
+  walk(buffer, (field) => {
+    if (field.num !== 1 || field.wire !== 2) return;
+    const range: { start?: number; end?: number } = {};
+    walk(field.data, (part) => {
+      if (part.num === 1 && part.wire === 0) range.start = uint(part.varint);
+      if (part.num === 2 && part.wire === 0) range.end = uint(part.varint);
+    });
+    ranges.push(range);
+  });
+  if (ranges.length === 0) return true;
+  return ranges.some((range) => {
+    if (range.start != null && nowSeconds < range.start) return false;
+    if (range.end != null && nowSeconds > range.end) return false;
+    return true;
+  });
+}
+
+export function decodeAlertFeed(buffer: Uint8Array, nowSeconds = Date.now() / 1000): ServiceAlert[] {
+  const alerts: ServiceAlert[] = [];
+  walk(buffer, (field) => {
+    if (field.num !== 2 || field.wire !== 2) return;
+    let id = "";
+    let message: Uint8Array | null = null;
+    walk(field.data, (entity) => {
+      if (entity.num === 1 && entity.wire === 2) id = text(entity.data);
+      if (entity.num === 5 && entity.wire === 2) message = entity.data;
+    });
+    if (!message || !activeAlert(message, nowSeconds)) return;
+    let effect: number | undefined;
+    let header = "";
+    let description = "";
+    const routeIds: string[] = [];
+    walk(message, (part) => {
+      if (part.num === 5 && part.wire === 2) {
+        walk(part.data, (selector) => {
+          if (selector.num === 2 && selector.wire === 2) routeIds.push(text(selector.data));
+        });
+      }
+      if (part.num === 7 && part.wire === 0) effect = uint(part.varint);
+      if (part.num === 10 && part.wire === 2) header = translation(part.data);
+      if (part.num === 11 && part.wire === 2) description = translation(part.data);
+    });
+    if (!header && !description) return;
+    alerts.push({
+      id: id || header,
+      effect,
+      header: header || ALERT_LABELS[effect ?? 7] || "Alerte",
+      description,
+      routeIds,
+    });
+  });
+  return alerts;
+}
+
+async function fetchProtobuf(url: string, signal?: AbortSignal) {
+  const response = await fetch(url, { signal, headers: { Accept: "application/x-protobuf" } });
+  if (!response.ok) throw new Error(`Flux TaM indisponible (${response.status})`);
+  return new Uint8Array(await response.arrayBuffer());
+}
+
+export function fetchTripFeed(signal?: AbortSignal) {
+  return fetchProtobuf(TRIP_UPDATES_URL, signal).then((buffer) => decodeTripFeed(buffer));
+}
+
+export function fetchAlertFeed(signal?: AbortSignal) {
+  return fetchProtobuf(ALERTS_URL, signal).then((buffer) => decodeAlertFeed(buffer));
+}
+
 export async function fetchVehicleFeed(signal?: AbortSignal): Promise<VehicleFeed> {
   const response = await fetch(VEHICLE_POSITIONS_URL, {
     signal,

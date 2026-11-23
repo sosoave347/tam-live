@@ -5,12 +5,15 @@ import MapView, { Marker, type Region } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FilterBar } from "@/components/filter-bar";
+import { MapGlance } from "@/components/map-glance";
 import { VehicleSheet } from "@/components/vehicle-sheet";
 import { palette } from "@/constants/theme";
 import { isStale } from "@/lib/format";
 import type { LiveVehicle } from "@/lib/gtfs-rt";
 import { useLive } from "@/lib/live";
+import { useUserLocation } from "@/lib/location";
 import { routeFor } from "@/lib/network";
+import { usePlaces } from "@/lib/places";
 
 const MONTPELLIER: Region = {
   latitude: 43.6109,
@@ -34,6 +37,8 @@ export function NetworkMap() {
   const mapRef = useRef<MapView>(null);
   const fitted = useRef("");
   const { visible, filter, selectedId, setSelectedId } = useLive();
+  const { granted } = useUserLocation();
+  const { home, work, focus, clearFocus } = usePlaces();
   const [trackMarkers, setTrackMarkers] = useState(true);
   const [followsUser, setFollowsUser] = useState(false);
 
@@ -49,6 +54,12 @@ export function NetworkMap() {
     fitted.current = key;
     fitTo(mapRef.current, visible);
   }, [visible, filter.mode, filter.routeId]);
+
+  useEffect(() => {
+    if (!focus || !mapRef.current) return;
+    mapRef.current.animateToRegion(focus);
+    clearFocus();
+  }, [focus, clearFocus]);
 
   async function centerOnMe() {
     const permission = await Location.requestForegroundPermissionsAsync();
@@ -80,11 +91,27 @@ export function NetworkMap() {
         style={styles.fill}
         initialRegion={MONTPELLIER}
         customMapStyle={Platform.OS === "android" ? DARK_MAP : undefined}
-        showsUserLocation={followsUser}
+        showsUserLocation={granted || followsUser}
         showsMyLocationButton={false}
         toolbarEnabled={false}
         rotateEnabled={false}
         onPanDrag={() => setFollowsUser(false)}>
+        {home ? (
+          <Marker
+            coordinate={{ latitude: home.latitude, longitude: home.longitude }}
+            title="Domicile"
+            description={home.address}
+            pinColor="#F4F7FB"
+          />
+        ) : null}
+        {work ? (
+          <Marker
+            coordinate={{ latitude: work.latitude, longitude: work.longitude }}
+            title="Travail"
+            description={work.address}
+            pinColor="#F5C16C"
+          />
+        ) : null}
         {visible.map((vehicle) => (
           <VehicleMarker
             key={vehicle.id}
@@ -107,7 +134,7 @@ export function NetworkMap() {
               <Text style={styles.toolText}>Réseau</Text>
             </Pressable>
           </View>
-          <VehicleSheet />
+          {selectedId ? <VehicleSheet /> : <MapGlance />}
         </View>
       </View>
     </View>

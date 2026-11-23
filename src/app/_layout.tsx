@@ -5,6 +5,9 @@ import { useEffect } from "react";
 
 import AppTabs from "@/components/app-tabs";
 import { LiveProvider } from "@/lib/live";
+import { LocationProvider } from "@/lib/location";
+import { PlacesProvider } from "@/lib/places";
+import { ServiceProvider } from "@/lib/service";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -15,10 +18,16 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={DarkTheme}>
-      <LiveProvider>
-        <StatusBar style="light" />
-        <AppTabs />
-      </LiveProvider>
+      <PlacesProvider>
+        <LocationProvider>
+          <LiveProvider>
+            <ServiceProvider>
+              <StatusBar style="light" />
+              <AppTabs />
+            </ServiceProvider>
+          </LiveProvider>
+        </LocationProvider>
+      </PlacesProvider>
     </ThemeProvider>
   );
 }
