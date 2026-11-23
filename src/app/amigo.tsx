@@ -7,7 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { type Palette } from "@/constants/theme";
 import { planJourney, type Itinerary, type TripPreference } from "@/lib/amigo";
 import { usePalette, useStyles } from "@/lib/appearance";
-import { geocodeMetropole } from "@/lib/geocode";
+import { geocodeMetropole, readableAddress } from "@/lib/geocode";
 import { useJourney } from "@/lib/journey";
 import { useUserLocation } from "@/lib/location";
 import { usePick } from "@/lib/pick";
@@ -47,6 +47,10 @@ export default function AmigoScreen() {
   const [results, setResults] = useState<Itinerary[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [hereLabel, setHereLabel] = useState<string | null>(null);
+  const [planned, setPlanned] = useState(false);
+  const [dayOffset, setDayOffset] = useState(1);
+  const [clock, setClock] = useState(8 * 60);
   const searched = useRef(false);
   const searchRef = useRef<() => void>(() => undefined);
 
@@ -55,9 +59,20 @@ export default function AmigoScreen() {
   }, [pick.destination]);
 
   useEffect(() => {
+    if (!coords || originKind !== "here") return;
+    let alive = true;
+    readableAddress(coords.latitude, coords.longitude, "").then((label) => {
+      if (alive && label) setHereLabel(label);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [coords?.latitude, coords?.longitude, originKind]);
+
+  useEffect(() => {
     if (!searched.current) return;
     searchRef.current();
-  }, [preference]);
+  }, [preference, planned, dayOffset, clock]);
 
   function chooseOrigin(kind: (typeof ORIGINS)[number][0]) {
     setOriginKind(kind);
@@ -82,7 +97,13 @@ export default function AmigoScreen() {
         pick.destination && query.trim().length === 0
           ? pick.destination
           : await geocodeMetropole(query, origin);
-      const plans = planJourney(origin, destination, trips, preference);
+      const instant = chosenInstant();
+      if (instant && instant.getTime() < Date.now() - 60_000) {
+        setResults([]);
+        setMessage("Cette heure est passée.");
+        return;
+      }
+      const plans = planJourney(origin, destination, trips, preference, Date.now() / 1000, instant ? instant.getTime() / 1000 : null);
       setAnchor({ origin, destination });
       setResults(plans);
       if (plans.length === 0) {
@@ -96,6 +117,15 @@ export default function AmigoScreen() {
     }
   }
   searchRef.current = search;
+
+  function chosenInstant() {
+    if (!planned) return null;
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() + dayOffset);
+    date.setMinutes(clock);
+    return date;
+  }
 
   async function resolveOrigin() {
     if (originKind === "home") {
@@ -147,6 +177,11 @@ export default function AmigoScreen() {
               </Pressable>
             ))}
           </View>
+          {originKind === "here" && hereLabel ? (
+            <Text style={styles.meta} numberOfLines={1}>
+              {hereLabel}
+            </Text>
+          ) : null}
           {originKind === "pin" && pick.origin ? (
             <Text style={styles.meta} numberOfLines={1}>
               {pick.origin.address}
@@ -172,6 +207,39 @@ export default function AmigoScreen() {
               <Text style={pick.destination && query.trim().length === 0 ? styles.segmentTextOn : styles.segmentText}>Point</Text>
             </Pressable>
           </View>
+          <View style={styles.segment}>
+            <Pressable onPress={() => setPlanned(false)} style={[styles.segmentItem, !planned && styles.segmentOn]}>
+              <Text style={[styles.segmentText, !planned && styles.segmentTextOn]}>Maintenant</Text>
+            </Pressable>
+            <Pressable onPress={() => setPlanned(true)} style={[styles.segmentItem, planned && styles.segmentOn]}>
+              <Text style={[styles.segmentText, planned && styles.segmentTextOn]}>
+                {planned ? `${dayLabel(dayOffset)} ${formatClock(clock)}` : "Heure"}
+              </Text>
+            </Pressable>
+          </View>
+          {planned ? (
+            <>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.days}>
+                {[0, 1, 2, 3, 4, 5, 6].map((offset) => (
+                  <Pressable
+                    key={offset}
+                    onPress={() => setDayOffset(offset)}
+                    style={[styles.day, dayOffset === offset && styles.segmentOn]}>
+                    <Text style={[styles.segmentText, dayOffset === offset && styles.segmentTextOn]}>{dayLabel(offset)}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+              <View style={styles.clockRow}>
+                <Pressable style={styles.point} onPress={() => setClock((value) => Math.max(5 * 60, value - 15))}>
+                  <Text style={styles.segmentTextOn}>–</Text>
+                </Pressable>
+                <Text style={styles.clock}>{formatClock(clock)}</Text>
+                <Pressable style={styles.point} onPress={() => setClock((value) => Math.min(23 * 60 + 45, value + 15))}>
+                  <Text style={styles.segmentTextOn}>+</Text>
+                </Pressable>
+              </View>
+            </>
+          ) : null}
           <View style={styles.segment}>
             {PREFERENCES.map((item) => (
               <Pressable
@@ -206,7 +274,7 @@ export default function AmigoScreen() {
                   <Text style={styles.legText} numberOfLines={2}>
                     {leg.boardName} → {leg.alightName}
                     {"\n"}
-                    {leg.waitMin} min d'attente · {leg.rideMin} min
+                    {leg.boardAt ? `${leg.boardAt} · ${leg.rideMin} min` : `${leg.waitMin} min d'attente · ${leg.rideMin} min`}
                   </Text>
                 </View>
               ))
@@ -216,6 +284,20 @@ export default function AmigoScreen() {
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+function dayLabel(offset: number) {
+  if (offset === 0) return "Auj";
+  if (offset === 1) return "Dem";
+  const date = new Date();
+  date.setDate(date.getDate() + offset);
+  return ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"][date.getDay()];
+}
+
+function formatClock(total: number) {
+  const hours = String(Math.floor(total / 60)).padStart(2, "0");
+  const minutes = String(total % 60).padStart(2, "0");
+  return `${hours}:${minutes}`;
 }
 
 function createStyles(palette: Palette) {
@@ -247,6 +329,10 @@ function createStyles(palette: Palette) {
     segmentOn: { backgroundColor: palette.elevated },
     segmentText: { color: palette.muted, fontSize: 12, fontWeight: "600" },
     segmentTextOn: { color: palette.text },
+    days: { gap: 6 },
+    day: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: 10, backgroundColor: palette.fill },
+    clockRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    clock: { color: palette.text, fontSize: 28, fontWeight: "700", fontVariant: ["tabular-nums"] },
     button: { backgroundColor: palette.blue, borderRadius: 14, minHeight: 48, alignItems: "center", justifyContent: "center" },
     buttonText: { color: "#FFFFFF", fontSize: 17, fontWeight: "700" },
     message: { color: palette.danger, fontSize: 15 },

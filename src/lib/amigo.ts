@@ -2,6 +2,7 @@ import patternData from "@/data/patterns.json";
 
 import type { LiveTrip } from "@/lib/gtfs-rt";
 import { destinationFor, routeFor } from "@/lib/network";
+import { clockFrom, scheduledWait } from "@/lib/schedule";
 import { distanceMeters, nearbyStops, stopById, walkMinutes, type StopCluster } from "@/lib/stops";
 
 export type TripPreference = "fast" | "tram" | "bus" | "direct";
@@ -20,6 +21,7 @@ export type JourneyLeg = {
   alightLongitude: number;
   rideMin: number;
   waitMin: number;
+  boardAt?: string;
   destination?: string;
 };
 
@@ -52,7 +54,10 @@ export function planJourney(
   trips: LiveTrip[],
   preference: TripPreference,
   nowSeconds = Date.now() / 1000,
+  departAt?: number | null,
 ): Itinerary[] {
+  const scheduled = departAt != null && departAt > nowSeconds + 15 * 60;
+  const moment = scheduled ? departAt : nowSeconds;
   const liveByRoute = new Map<string, LiveTrip[]>();
   for (const trip of trips) {
     const list = liveByRoute.get(trip.routeId) ?? [];
@@ -83,12 +88,11 @@ export function planJourney(
     if (!board) return;
     const alight = firstStop(pattern, destinationIds, board.index + 1);
     if (alight) {
-      const itinerary = build(
-        [ride(pattern, board, alight, origins, destinations, liveByRoute, nowSeconds)],
-        origin,
-        destination,
-      );
-      if (itinerary) found.push(itinerary);
+      const direct = ride(pattern, board, alight, origins, destinations, liveByRoute, moment, scheduled, origin);
+      if (direct) {
+        const itinerary = build([direct.leg], origin, destination);
+        if (itinerary) found.push(itinerary);
+      }
       if (preference === "direct") return;
     }
     if (preference === "direct") return;
@@ -109,8 +113,11 @@ export function planJourney(
           origins,
           destinations,
           liveByRoute,
-          nowSeconds,
+          moment,
+          scheduled,
+          origin,
         );
+        if (!first) continue;
         const second = ride(
           next,
           { index: visit.stopIndex, stop: next.stops[visit.stopIndex] },
@@ -118,10 +125,13 @@ export function planJourney(
           origins,
           destinations,
           liveByRoute,
-          nowSeconds,
+          first.departSeconds + first.leg.rideMin * 60,
+          scheduled,
+          origin,
           true,
         );
-        const itinerary = build([first, second], origin, destination);
+        if (!second) continue;
+        const itinerary = build([first.leg, second.leg], origin, destination);
         if (itinerary) found.push(itinerary);
       }
     }
@@ -196,31 +206,48 @@ function ride(
   origins: StopCluster[],
   destinations: StopCluster[],
   liveByRoute: Map<string, LiveTrip[]>,
-  nowSeconds: number,
+  whenSeconds: number,
+  scheduled: boolean,
+  origin: { latitude: number; longitude: number },
   transfer = false,
-): JourneyLeg {
+): { leg: JourneyLeg; departSeconds: number } | null {
   const route = routeFor(pattern.routeId);
   const boardPlace = stopById.get(board.stop.id);
   const alightPlace = stopById.get(alight.stop.id);
   const boardCluster = clusterFor(board.stop.id, origins);
   const alightCluster = clusterFor(alight.stop.id, destinations);
+  const boardLatitude = boardPlace?.lat ?? boardCluster?.latitude ?? 0;
+  const boardLongitude = boardPlace?.lon ?? boardCluster?.longitude ?? 0;
+  const ready = transfer || !scheduled
+    ? whenSeconds
+    : whenSeconds + walkMinutes(distanceMeters(origin.latitude, origin.longitude, boardLatitude, boardLongitude)) * 60;
+  let waitMin = transfer ? 3 : waitFor(board.stop.id, alight.stop.id, liveByRoute.get(pattern.routeId) ?? [], whenSeconds, route?.mode);
+  let boardAt: string | undefined;
+  if (scheduled) {
+    const wait = scheduledWait(pattern.routeId, pattern.direction, board.stop.t, ready);
+    if (wait == null) return null;
+    waitMin = wait;
+    boardAt = clockFrom(ready, wait);
+  }
   return {
-    routeId: pattern.routeId,
-    shortName: route?.shortName ?? pattern.routeId,
-    color: route?.color ?? "#8E8E93",
-    textColor: route?.textColor ?? "#FFFFFF",
-    mode: route?.mode ?? "bus",
-    boardName: boardCluster?.name ?? boardPlace?.name ?? "Arrêt",
-    alightName: alightCluster?.name ?? alightPlace?.name ?? "Arrêt",
-    boardLatitude: boardPlace?.lat ?? boardCluster?.latitude ?? 0,
-    boardLongitude: boardPlace?.lon ?? boardCluster?.longitude ?? 0,
-    alightLatitude: alightPlace?.lat ?? alightCluster?.latitude ?? 0,
-    alightLongitude: alightPlace?.lon ?? alightCluster?.longitude ?? 0,
-    rideMin: Math.max(1, Math.round((alight.stop.t - board.stop.t) / 60)),
-    waitMin: transfer
-      ? 3
-      : waitFor(board.stop.id, alight.stop.id, liveByRoute.get(pattern.routeId) ?? [], nowSeconds, route?.mode),
-    destination: destinationFor(route, pattern.direction),
+    departSeconds: ready + waitMin * 60,
+    leg: {
+      routeId: pattern.routeId,
+      shortName: route?.shortName ?? pattern.routeId,
+      color: route?.color ?? "#8E8E93",
+      textColor: route?.textColor ?? "#FFFFFF",
+      mode: route?.mode ?? "bus",
+      boardName: boardCluster?.name ?? boardPlace?.name ?? "Arrêt",
+      alightName: alightCluster?.name ?? alightPlace?.name ?? "Arrêt",
+      boardLatitude,
+      boardLongitude,
+      alightLatitude: alightPlace?.lat ?? alightCluster?.latitude ?? 0,
+      alightLongitude: alightPlace?.lon ?? alightCluster?.longitude ?? 0,
+      rideMin: Math.max(1, Math.round((alight.stop.t - board.stop.t) / 60)),
+      waitMin,
+      boardAt,
+      destination: destinationFor(route, pattern.direction),
+    },
   };
 }
 

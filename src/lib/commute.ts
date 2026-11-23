@@ -78,7 +78,7 @@ export function plansBetween(
 }
 
 export function arrivalsNear(point: PlacePoint, trips: LiveTrip[], alerts: ServiceAlert[], nowSeconds = Date.now() / 1000) {
-  const clusters = nearbyStops(point.latitude, point.longitude, 8, 600);
+  const clusters = nearbyStops(point.latitude, point.longitude, 12, 1000);
   return clusters.map((cluster) => {
     const ids = new Set(cluster.ids);
     const seen = new Set<string>();

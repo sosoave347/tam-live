@@ -35,7 +35,11 @@ type Focus = {
 type PlacesContextValue = Places & {
   ready: boolean;
   focus: Focus | null;
-  saveAddress: (kind: keyof Places, query: string) => Promise<void>;
+  saveAddress: (
+    kind: keyof Places,
+    query: string,
+    bias?: { latitude: number; longitude: number },
+  ) => Promise<void>;
   saveHere: (kind: keyof Places) => Promise<void>;
   clearPlace: (kind: keyof Places) => void;
   focusOn: (latitude: number, longitude: number) => void;
@@ -68,8 +72,8 @@ export function PlacesProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const saveAddress = useCallback(
-    async (kind: keyof Places, query: string) => {
-      const hit = await geocodeMetropole(query);
+    async (kind: keyof Places, query: string, bias?: { latitude: number; longitude: number }) => {
+      const hit = await geocodeMetropole(query, bias);
       persist({ ...places, [kind]: hit });
     },
     [persist, places],

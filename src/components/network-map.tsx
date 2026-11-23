@@ -224,15 +224,14 @@ export function NetworkMap() {
             <Text style={styles.pickHint}>{pinMessage ?? "Déplace la carte"}</Text>
           </View>
         ) : (
-          <FilterBar />
+          <FilterBar onMe={centerOnMe} onNetwork={showNetwork} onClear={journey ? () => setJourney(null) : undefined} />
         )}
         <View pointerEvents="box-none" style={[styles.bottom, { marginBottom: insets.bottom + 72 }]}>
+          {pick.role ? (
           <View style={styles.tools}>
             <Pressable style={styles.tool} onPress={centerOnMe}>
               <Text style={styles.toolText}>Moi</Text>
             </Pressable>
-            {pick.role ? (
-              <>
                 <Pressable
                   style={styles.tool}
                   onPress={() => {
@@ -244,20 +243,8 @@ export function NetworkMap() {
                 <Pressable style={styles.tool} onPress={acceptPin} disabled={placing}>
                   {placing ? <ActivityIndicator /> : <Text style={styles.toolText}>OK</Text>}
                 </Pressable>
-              </>
-            ) : (
-              <>
-                <Pressable style={styles.tool} onPress={showNetwork}>
-                  <Text style={styles.toolText}>Réseau</Text>
-                </Pressable>
-                {journey ? (
-                  <Pressable style={styles.tool} onPress={() => setJourney(null)}>
-                    <Text style={styles.toolText}>Effacer</Text>
-                  </Pressable>
-                ) : null}
-              </>
-            )}
           </View>
+          ) : null}
           {pick.role || !selectedId ? null : <VehicleSheet />}
         </View>
       </View>

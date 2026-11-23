@@ -1,6 +1,6 @@
-import { Pressable, ScrollView, StyleSheet, Text } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { type Palette } from "@/constants/theme";
+import { cardShadow, type Palette } from "@/constants/theme";
 import { useStyles } from "@/lib/appearance";
 import { useFavorites } from "@/lib/favorites";
 import { useLive, type VehicleFilter } from "@/lib/live";
@@ -12,7 +12,15 @@ const MODES: { id: VehicleFilter["mode"]; label: string }[] = [
   { id: "bus", label: "Bus" },
 ];
 
-export function FilterBar() {
+export function FilterBar({
+  onMe,
+  onNetwork,
+  onClear,
+}: {
+  onMe: () => void;
+  onNetwork: () => void;
+  onClear?: () => void;
+}) {
   const styles = useStyles(createStyles);
   const { filter, setFilter, setSelectedId } = useLive();
   const { ids } = useFavorites();
@@ -31,7 +39,21 @@ export function FilterBar() {
   }
 
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row} style={styles.wrap}>
+    <View style={styles.card}>
+      <View style={styles.actions}>
+        <Pressable style={styles.action} onPress={onMe}>
+          <Text style={styles.actionText}>Moi</Text>
+        </Pressable>
+        <Pressable style={styles.action} onPress={onNetwork}>
+          <Text style={styles.actionText}>Réseau</Text>
+        </Pressable>
+        {onClear ? (
+          <Pressable style={styles.action} onPress={onClear}>
+            <Text style={styles.actionText}>Effacer</Text>
+          </Pressable>
+        ) : null}
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
       {MODES.map((mode) => {
         const active = filter.mode === mode.id && !filter.routeId;
         return (
@@ -63,16 +85,37 @@ export function FilterBar() {
           <Text style={[styles.lineText, { color: selectedBus.textColor }]}>{selectedBus.shortName}</Text>
         </Pressable>
       ) : null}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 function createStyles(palette: Palette) {
   return StyleSheet.create({
-    wrap: {
-      marginHorizontal: 10,
-      marginTop: 6,
-      flexGrow: 0,
+    card: {
+      marginHorizontal: 12,
+      marginTop: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 10,
+      borderRadius: 22,
+      backgroundColor: palette.panel,
+      gap: 8,
+      ...cardShadow,
+    },
+    actions: {
+      flexDirection: "row",
+      gap: 6,
+    },
+    action: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 999,
+      backgroundColor: palette.fill,
+    },
+    actionText: {
+      color: palette.text,
+      fontSize: 13,
+      fontWeight: "700",
     },
     row: {
       alignItems: "center",
@@ -83,7 +126,7 @@ function createStyles(palette: Palette) {
       paddingHorizontal: 10,
       paddingVertical: 5,
       borderRadius: 999,
-      backgroundColor: palette.panel,
+      backgroundColor: palette.fill,
     },
     modeActive: {
       backgroundColor: palette.blue,

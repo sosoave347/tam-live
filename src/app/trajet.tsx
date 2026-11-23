@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -10,11 +10,11 @@ import {
   arrivalsNear,
   formatDistance,
   formatWait,
-  plansBetween,
-  type RidePlan,
 } from "@/lib/commute";
 import { useFavorites } from "@/lib/favorites";
 import { ALERT_LABELS } from "@/lib/gtfs-rt";
+import { planJourney, type Itinerary } from "@/lib/amigo";
+import { useJourney } from "@/lib/journey";
 import { useUserLocation } from "@/lib/location";
 import { useLive } from "@/lib/live";
 import { usePlaces, type SavedPlace } from "@/lib/places";
@@ -26,12 +26,23 @@ export default function TripScreen() {
   const styles = useStyles(createStyles);
   const router = useRouter();
   const { coords, granted, request } = useUserLocation();
-  const { home, work } = usePlaces();
+  const { home, work, focusOn } = usePlaces();
+  const { setJourney } = useJourney();
   const { trips, alerts } = useService();
   const here = coords;
   const nearby = here ? arrivalsNear(here, trips, alerts) : [];
-  const plans = home && work ? plansBetween(home, work, trips, alerts) : [];
   const nearest = nearby[0];
+  const commute = useMemo(
+    () => (home && work ? planJourney(home, work, trips, "fast") : []),
+    [home, work, trips],
+  );
+
+  function openCommute(itinerary: Itinerary) {
+    if (!home || !work) return;
+    setJourney({ itinerary, origin: home, destination: work });
+    focusOn(work.latitude, work.longitude);
+    router.push("/");
+  }
 
   return (
     <SafeAreaView style={styles.screen} edges={["top"]}>
@@ -39,16 +50,22 @@ export default function TripScreen() {
         <Text style={styles.title}>Trajet</Text>
         <AppearanceControl />
         <Pressable style={styles.amigo} onPress={() => router.push("/amigo")}>
-          <Text style={styles.cardTitle}>Amigo</Text>
-          <Text style={styles.meta}>Itinéraire</Text>
+          <View style={styles.amigoMark}>
+            <Text style={styles.amigoMarkText}>A</Text>
+          </View>
+          <View style={styles.copy}>
+            <Text style={styles.cardTitle}>Amigo</Text>
+            <Text style={styles.meta}>Itinéraire</Text>
+          </View>
+          <Text style={styles.chevron}>›</Text>
         </Pressable>
 
-        <Fold title="Adresses" hint={[home && "Domicile", work && "Travail"].filter(Boolean).join(" · ") || "Ajouter"}>
+        <Section title="Adresses">
           <PlaceCard kind="home" title="Domicile" place={home} />
           <PlaceCard kind="work" title="Travail" place={work} />
-        </Fold>
+        </Section>
 
-        <Fold title="Perturbations" hint={alerts.length === 0 ? "Aucune" : String(alerts.length)}>
+        <Section title="Perturbations">
           {alerts.length === 0 ? (
             <Text style={styles.meta}>Aucune</Text>
           ) : (
@@ -62,16 +79,19 @@ export default function TripScreen() {
               </View>
             ))
           )}
-        </Fold>
+        </Section>
 
-        <Fold
+        <Section
           title="Autour de toi"
-          hint={nearest ? `${nearest.cluster.name} · ${formatDistance(nearest.cluster.distance)}` : granted ? "…" : "Position"}
           extra={
             !granted ? (
               <Pressable onPress={request}>
                 <Text style={styles.link}>Activer</Text>
               </Pressable>
+            ) : nearest ? (
+              <Text style={styles.meta} numberOfLines={1}>
+                {formatDistance(nearest.cluster.distance)}
+              </Text>
             ) : null
           }>
           {!here ? (
@@ -102,66 +122,69 @@ export default function TripScreen() {
               </View>
             ))
           )}
-        </Fold>
+        </Section>
 
-        <Fold title="Vers le travail" hint={plans[0] ? plans[0].shortName : home && work ? "Aucune ligne directe" : "Adresses"}>
+        <Section title="Vers le travail">
           {!home || !work ? (
             <Text style={styles.meta}>Ajoute le domicile et le travail.</Text>
-          ) : plans.length === 0 ? (
-            <Text style={styles.meta}>Aucune ligne directe.</Text>
           ) : (
-            plans.map((plan) => <RideCard key={plan.routeId} plan={plan} />)
+            <>
+              <Text style={styles.meta} numberOfLines={2}>
+                {home.address} → {work.address}
+              </Text>
+              {commute.length === 0 ? (
+                <Text style={styles.meta}>Aucun trajet entre ces deux points.</Text>
+              ) : (
+                commute.map((itinerary) => (
+                  <Pressable key={itinerary.id} style={styles.stopCard} onPress={() => openCommute(itinerary)}>
+                    <View style={styles.stopHead}>
+                      <Text style={styles.cardTitle}>{itinerary.totalMin} min</Text>
+                      <Text style={styles.meta}>{itinerary.summary}</Text>
+                    </View>
+                    {itinerary.legs.map((leg) => (
+                      <ArrivalLine
+                        key={`${itinerary.id}-${leg.routeId}-${leg.boardName}`}
+                        routeId={leg.routeId}
+                        color={leg.color}
+                        textColor={leg.textColor}
+                        shortName={leg.shortName}
+                        detail={`${leg.boardName} → ${leg.alightName}`}
+                        when={leg.boardAt ?? `${leg.waitMin} min`}
+                        disrupted={false}
+                      />
+                    ))}
+                  </Pressable>
+                ))
+              )}
+            </>
           )}
-        </Fold>
+        </Section>
 
-        <LinesFold />
+        <LinesSection />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function Fold({
-  title,
-  hint,
-  extra,
-  children,
-}: {
-  title: string;
-  hint?: string;
-  extra?: ReactNode;
-  children: ReactNode;
-}) {
+function Section({ title, extra, children }: { title: string; extra?: ReactNode; children: ReactNode }) {
   const styles = useStyles(createStyles);
-  const [open, setOpen] = useState(false);
   return (
-    <View style={styles.fold}>
-      <View style={styles.foldHead}>
-        <Pressable style={styles.foldTap} onPress={() => setOpen((value) => !value)}>
-          <Text style={styles.foldTitle}>{title}</Text>
-          {hint && !open ? (
-            <Text style={styles.foldHint} numberOfLines={1}>
-              {hint}
-            </Text>
-          ) : null}
-          <Text style={styles.foldMark}>{open ? "–" : "+"}</Text>
-        </Pressable>
+    <View style={styles.sectionBlock}>
+      <View style={styles.sectionHead}>
+        <Text style={styles.sectionLabel}>{title}</Text>
         {extra}
       </View>
-      {open ? <View style={styles.foldBody}>{children}</View> : null}
+      <View style={styles.sectionCard}>{children}</View>
     </View>
   );
 }
 
-function LinesFold() {
+function LinesSection() {
   const styles = useStyles(createStyles);
   const palette = usePalette();
   const { ids, has, toggle, clear } = useFavorites();
   const { setFilter, setSelectedId } = useLive();
   const trams = routes.filter((route) => route.mode === "tram");
-  const hint = ids
-    .map((id) => routeFor(id)?.shortName ?? id)
-    .slice(0, 4)
-    .join(" ");
 
   function keep(id: string) {
     const removing = ids.includes(id);
@@ -171,7 +194,19 @@ function LinesFold() {
   }
 
   return (
-    <Fold title="Mes lignes" hint={hint || "Choisir"}>
+    <Section
+      title="Mes lignes"
+      extra={
+        ids.length > 0 ? (
+          <Pressable
+            onPress={() => {
+              clear();
+              setFilter({ mode: "all", routeId: null });
+            }}>
+            <Text style={styles.link}>Effacer</Text>
+          </Pressable>
+        ) : null
+      }>
       <View style={styles.chips}>
         {trams.map((route) => {
           const on = has(route.id);
@@ -185,22 +220,14 @@ function LinesFold() {
           );
         })}
       </View>
-      {ids.length > 0 ? (
-        <Pressable
-          onPress={() => {
-            clear();
-            setFilter({ mode: "all", routeId: null });
-          }}>
-          <Text style={styles.link}>Effacer</Text>
-        </Pressable>
-      ) : null}
-    </Fold>
+    </Section>
   );
 }
 
 function PlaceCard({ kind, title, place }: { kind: "home" | "work"; title: string; place: SavedPlace | null }) {
   const styles = useStyles(createStyles);
   const palette = usePalette();
+  const { coords } = useUserLocation();
   const { saveAddress, saveHere, clearPlace } = usePlaces();
   const [draft, setDraft] = useState(place?.address ?? "");
   useEffect(() => {
@@ -240,7 +267,7 @@ function PlaceCard({ kind, title, place }: { kind: "home" | "work"; title: strin
         autoCorrect={false}
       />
       <View style={styles.actions}>
-        <Pressable style={styles.primary} disabled={busy} onPress={() => run(() => saveAddress(kind, draft))}>
+        <Pressable style={styles.primary} disabled={busy} onPress={() => run(() => saveAddress(kind, draft, coords ?? undefined))}>
           {busy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryText}>OK</Text>}
         </Pressable>
         <Pressable style={styles.secondary} disabled={busy} onPress={() => run(() => saveHere(kind))}>
@@ -249,38 +276,6 @@ function PlaceCard({ kind, title, place }: { kind: "home" | "work"; title: strin
       </View>
       {message ? <Text style={styles.error}>{message}</Text> : null}
     </View>
-  );
-}
-
-function RideCard({ plan }: { plan: RidePlan }) {
-  const styles = useStyles(createStyles);
-  const router = useRouter();
-  const { setFilter, setSelectedId } = useLive();
-  const { focusOn } = usePlaces();
-
-  function openOnMap() {
-    const route = routeFor(plan.routeId);
-    setSelectedId(null);
-    setFilter({ mode: route?.mode ?? "bus", routeId: plan.routeId });
-    focusOn(plan.boardLatitude, plan.boardLongitude);
-    router.push("/");
-  }
-
-  return (
-    <Pressable style={styles.stopCard} onPress={openOnMap}>
-      <ArrivalLine
-        routeId={plan.routeId}
-        color={plan.color}
-        textColor={plan.textColor}
-        shortName={plan.shortName}
-        detail={`${plan.boardName} → ${plan.alightName}`}
-        when={formatWait(plan.departureTime)}
-        disrupted={plan.disrupted}
-      />
-      <Text style={styles.meta}>
-        {plan.walkMinutes} min · {plan.boardName}
-      </Text>
-    </Pressable>
   );
 }
 
@@ -341,11 +336,51 @@ function createStyles(palette: Palette) {
   amigo: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 12,
     backgroundColor: palette.panelSolid,
-    borderRadius: 16,
+    borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 12,
+  },
+  amigoMark: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: palette.blue,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  amigoMarkText: {
+    color: "#FFFFFF",
+    fontWeight: "800",
+    fontSize: 16,
+  },
+  chevron: {
+    color: palette.muted,
+    fontSize: 22,
+    fontWeight: "600",
+  },
+  sectionBlock: {
+    gap: 8,
+  },
+  sectionHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 4,
+  },
+  sectionLabel: {
+    color: palette.muted,
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+    textTransform: "uppercase",
+  },
+  sectionCard: {
+    backgroundColor: palette.panelSolid,
+    borderRadius: 20,
+    padding: 12,
+    gap: 10,
   },
   fold: {
     backgroundColor: palette.panelSolid,
@@ -415,16 +450,13 @@ function createStyles(palette: Palette) {
     alignItems: "flex-end",
   },
   place: {
-    backgroundColor: palette.panelSolid,
-    borderRadius: 20,
-    padding: 14,
     gap: 10,
   },
   stopCard: {
-    backgroundColor: palette.panelSolid,
-    borderRadius: 20,
-    padding: 14,
-    gap: 10,
+    backgroundColor: palette.fill,
+    borderRadius: 16,
+    padding: 12,
+    gap: 8,
   },
   calm: {
     backgroundColor: "rgba(142,228,193,0.08)",

@@ -82,21 +82,6 @@ const ALIASES: [string, string][] = [
   ["montpellier", "Montpellier"],
 ];
 
-const MAJOR = [
-  "Montpellier",
-  "Lattes",
-  "Pérols",
-  "Castelnau-le-Lez",
-  "Saint-Jean-de-Védas",
-  "Clapiers",
-  "Jacou",
-  "Grabels",
-  "Juvignac",
-  "Le Crès",
-  "Palavas-les-Flots",
-  "Vendargues",
-];
-
 export function inMetropole(latitude: number, longitude: number) {
   return latitude > 43.49 && latitude < 43.76 && longitude > 3.66 && longitude < 4.08;
 }
@@ -108,15 +93,17 @@ export async function geocodeMetropole(
   const trimmed = query.trim();
   if (trimmed.length < 3) throw new Error("Indique une adresse plus précise.");
   const city = mentionedCommune(trimmed);
+  const near = !city && bias ? await communeAt(bias) : null;
   const attempts = city
     ? [withCity(trimmed, city)]
-    : [trimmed, `${trimmed}, Montpellier Méditerranée Métropole`, `${trimmed}, Hérault`];
+    : near
+      ? [`${trimmed}, ${near}`, trimmed]
+      : [trimmed, `${trimmed}, Hérault`];
 
-  let pool = await firstInside(attempts);
-  if (pool.length === 0 && !city) pool = await searchCommunes(trimmed);
+  const pool = await collectInside(attempts);
   if (pool.length === 0) throw new Error("Adresse introuvable dans la métropole.");
 
-  const hit = nearest(pool, bias ?? { latitude: 43.61, longitude: 3.88 });
+  const hit = bias ? nearest(pool, bias) : pool[0];
   return {
     latitude: hit.latitude,
     longitude: hit.longitude,
@@ -149,17 +136,27 @@ function withCity(query: string, city: string) {
   return fold(query).includes(fold(city)) ? query : `${query}, ${city}`;
 }
 
-async function firstInside(attempts: string[]) {
+async function collectInside(attempts: string[]) {
+  const seen = new Set<string>();
+  const pool: Location.LocationGeocodedLocation[] = [];
   for (const attempt of attempts) {
-    const inside = await geocodeInside(attempt);
-    if (inside.length > 0) return inside;
+    for (const item of await geocodeInside(attempt)) {
+      const key = `${item.latitude.toFixed(4)}:${item.longitude.toFixed(4)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      pool.push(item);
+    }
   }
-  return [];
+  return pool;
 }
 
-async function searchCommunes(query: string) {
-  const batches = await Promise.all(MAJOR.map((city) => geocodeInside(`${query}, ${city}`)));
-  return batches.flat();
+async function communeAt(point: { latitude: number; longitude: number }) {
+  try {
+    const [place] = await Location.reverseGeocodeAsync(point);
+    return place?.city || place?.district || place?.subregion || null;
+  } catch {
+    return null;
+  }
 }
 
 async function geocodeInside(query: string) {
