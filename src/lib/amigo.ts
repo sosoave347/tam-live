@@ -21,7 +21,8 @@ export type JourneyLeg = {
   alightLongitude: number;
   rideMin: number;
   waitMin: number;
-  boardAt?: string;
+  boardAt: string;
+  alightAt: string;
   destination?: string;
 };
 
@@ -29,9 +30,13 @@ export type Itinerary = {
   id: string;
   totalMin: number;
   walkMin: number;
+  walkInMin: number;
+  walkOutMin: number;
   transfers: number;
   legs: JourneyLeg[];
   summary: string;
+  departAt: string;
+  arriveAt: string;
 };
 
 type PatternStop = { id: string; t: number };
@@ -76,9 +81,13 @@ export function planJourney(
       id: "walk",
       totalMin: walk,
       walkMin: walk,
+      walkInMin: walk,
+      walkOutMin: 0,
       transfers: 0,
       legs: [],
-      summary: "À pied, sans transport",
+      summary: "À pied",
+      departAt: clockFrom(moment, 0),
+      arriveAt: clockFrom(moment, walk),
     });
   }
 
@@ -90,7 +99,7 @@ export function planJourney(
     if (alight) {
       const direct = ride(pattern, board, alight, origins, destinations, liveByRoute, moment, scheduled, origin);
       if (direct) {
-        const itinerary = build([direct.leg], origin, destination);
+        const itinerary = build([direct.leg], origin, destination, moment);
         if (itinerary) found.push(itinerary);
       }
       if (preference === "direct") return;
@@ -131,7 +140,7 @@ export function planJourney(
           true,
         );
         if (!second) continue;
-        const itinerary = build([first.leg, second.leg], origin, destination);
+        const itinerary = build([first.leg, second.leg], origin, destination, moment);
         if (itinerary) found.push(itinerary);
       }
     }
@@ -218,16 +227,25 @@ function ride(
   const alightCluster = clusterFor(alight.stop.id, destinations);
   const boardLatitude = boardPlace?.lat ?? boardCluster?.latitude ?? 0;
   const boardLongitude = boardPlace?.lon ?? boardCluster?.longitude ?? 0;
-  const ready = transfer || !scheduled
-    ? whenSeconds
-    : whenSeconds + walkMinutes(distanceMeters(origin.latitude, origin.longitude, boardLatitude, boardLongitude)) * 60;
-  let waitMin = transfer ? 3 : waitFor(board.stop.id, alight.stop.id, liveByRoute.get(pattern.routeId) ?? [], whenSeconds, route?.mode);
-  let boardAt: string | undefined;
+  const walkToBoard = transfer
+    ? 0
+    : walkMinutes(distanceMeters(origin.latitude, origin.longitude, boardLatitude, boardLongitude));
+  const ready = whenSeconds + walkToBoard * 60;
+  const rideMin = Math.max(1, Math.round((alight.stop.t - board.stop.t) / 60));
+  let waitMin: number;
   if (scheduled) {
     const wait = scheduledWait(pattern.routeId, pattern.direction, board.stop.t, ready);
     if (wait == null) return null;
     waitMin = wait;
-    boardAt = clockFrom(ready, wait);
+  } else {
+    waitMin = waitFor(
+      board.stop.id,
+      alight.stop.id,
+      liveByRoute.get(pattern.routeId) ?? [],
+      ready,
+      route?.mode,
+      transfer,
+    );
   }
   return {
     departSeconds: ready + waitMin * 60,
@@ -243,9 +261,10 @@ function ride(
       boardLongitude,
       alightLatitude: alightPlace?.lat ?? alightCluster?.latitude ?? 0,
       alightLongitude: alightPlace?.lon ?? alightCluster?.longitude ?? 0,
-      rideMin: Math.max(1, Math.round((alight.stop.t - board.stop.t) / 60)),
+      rideMin,
       waitMin,
-      boardAt,
+      boardAt: clockFrom(ready, waitMin),
+      alightAt: clockFrom(ready, waitMin + rideMin),
       destination: destinationFor(route, pattern.direction),
     },
   };
@@ -255,19 +274,21 @@ function waitFor(
   boardId: string,
   alightId: string,
   trips: LiveTrip[],
-  nowSeconds: number,
+  readySeconds: number,
   mode: "tram" | "bus" | undefined,
+  transfer = false,
 ) {
   let best: number | null = null;
   for (const trip of trips) {
-    const board = trip.passes.find((pass) => pass.stopId === boardId && pass.time >= nowSeconds - 30);
+    const board = trip.passes.find((pass) => pass.stopId === boardId && pass.time >= readySeconds - 30);
     if (!board) continue;
     const alight = trip.passes.find((pass) => pass.stopId === alightId && pass.time > board.time);
     if (!alight) continue;
-    const minutes = Math.max(0, Math.round((board.time - nowSeconds) / 60));
+    const minutes = Math.max(0, Math.round((board.time - readySeconds) / 60));
     if (best == null || minutes < best) best = minutes;
   }
   if (best != null) return best;
+  if (transfer) return 3;
   return mode === "tram" ? 4 : 7;
 }
 
@@ -279,6 +300,7 @@ function build(
   legs: JourneyLeg[],
   origin: { latitude: number; longitude: number },
   destination: { latitude: number; longitude: number },
+  moment: number,
 ): Itinerary | null {
   if (legs.some((leg) => leg.rideMin <= 0 || !leg.boardLatitude || !leg.alightLatitude)) return null;
   const walkIn = walkMinutes(distanceMeters(origin.latitude, origin.longitude, legs[0].boardLatitude, legs[0].boardLongitude));
@@ -286,13 +308,18 @@ function build(
   const walkOut = walkMinutes(distanceMeters(destination.latitude, destination.longitude, last.alightLatitude, last.alightLongitude));
   const ride = legs.reduce((sum, leg) => sum + leg.rideMin + leg.waitMin, 0);
   const walkMin = walkIn + walkOut;
+  const totalMin = walkMin + ride + Math.max(0, legs.length - 1) * 2;
   const names = legs.map((leg) => leg.shortName).join(" puis ");
   return {
     id: legs.map((leg) => `${leg.routeId}:${leg.boardName}:${leg.alightName}`).join(">"),
-    totalMin: walkMin + ride + Math.max(0, legs.length - 1) * 2,
+    totalMin,
     walkMin,
+    walkInMin: walkIn,
+    walkOutMin: walkOut,
     transfers: Math.max(0, legs.length - 1),
     legs,
-    summary: legs.length === 1 ? `${names} · ${walkMin} min à pied` : `${names} · ${walkMin} min à pied`,
+    summary: `${names} · ${walkMin} min à pied`,
+    departAt: clockFrom(moment, 0),
+    arriveAt: clockFrom(moment, totalMin),
   };
 }

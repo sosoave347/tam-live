@@ -4,6 +4,8 @@ import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppearanceControl } from "@/components/appearance-control";
+import { ItineraryCard } from "@/components/itinerary-card";
+import { TripSearch } from "@/components/trip-search";
 import { type Palette } from "@/constants/theme";
 import { usePalette, useStyles } from "@/lib/appearance";
 import {
@@ -32,14 +34,16 @@ export default function TripScreen() {
   const here = coords;
   const nearby = here ? arrivalsNear(here, trips, alerts) : [];
   const nearest = nearby[0];
+  const [aroundOpen, setAroundOpen] = useState(false);
+  const commuteFrom = here ?? home;
   const commute = useMemo(
-    () => (home && work ? planJourney(home, work, trips, "fast") : []),
-    [home, work, trips],
+    () => (commuteFrom && work ? planJourney(commuteFrom, work, trips, "fast") : []),
+    [commuteFrom?.latitude, commuteFrom?.longitude, work, trips],
   );
 
   function openCommute(itinerary: Itinerary) {
-    if (!home || !work) return;
-    setJourney({ itinerary, origin: home, destination: work });
+    if (!commuteFrom || !work) return;
+    setJourney({ itinerary, origin: commuteFrom, destination: work });
     focusOn(work.latitude, work.longitude);
     router.push("/");
   }
@@ -49,16 +53,7 @@ export default function TripScreen() {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={styles.title}>Trajet</Text>
         <AppearanceControl />
-        <Pressable style={styles.amigo} onPress={() => router.push("/amigo")}>
-          <View style={styles.amigoMark}>
-            <Text style={styles.amigoMarkText}>A</Text>
-          </View>
-          <View style={styles.copy}>
-            <Text style={styles.cardTitle}>Amigo</Text>
-            <Text style={styles.meta}>Itinéraire</Text>
-          </View>
-          <Text style={styles.chevron}>›</Text>
-        </Pressable>
+        <TripSearch />
 
         <Section title="Adresses">
           <PlaceCard kind="home" title="Domicile" place={home} />
@@ -81,21 +76,24 @@ export default function TripScreen() {
           )}
         </Section>
 
-        <Section
-          title="Autour de toi"
-          extra={
-            !granted ? (
-              <Pressable onPress={request}>
-                <Text style={styles.link}>Activer</Text>
-              </Pressable>
-            ) : nearest ? (
-              <Text style={styles.meta} numberOfLines={1}>
-                {formatDistance(nearest.cluster.distance)}
-              </Text>
-            ) : null
-          }>
-          {!here ? (
-            <Text style={styles.meta}>{granted ? "Position en cours…" : "Active la position."}</Text>
+        <View style={styles.sectionBlock}>
+        <Pressable style={styles.sectionHead} onPress={() => setAroundOpen((open) => !open)}>
+          <Text style={styles.sectionLabel}>Autour de toi</Text>
+          <Text style={styles.foldHint} numberOfLines={1}>
+            {!granted ? "Position coupée" : nearest ? `${nearest.cluster.name} · ${formatDistance(nearest.cluster.distance)}` : "1 km"}
+          </Text>
+          <Text style={styles.foldMark}>{aroundOpen ? "⌃" : "⌄"}</Text>
+        </Pressable>
+        {aroundOpen ? (
+        <View style={styles.sectionCard}>
+          {!granted ? (
+            <Pressable onPress={request}>
+              <Text style={styles.link}>Activer la position</Text>
+            </Pressable>
+          ) : !here ? (
+            <Text style={styles.meta}>Position en cours…</Text>
+          ) : nearby.length === 0 ? (
+            <Text style={styles.meta}>Rien à moins d'un kilomètre.</Text>
           ) : (
             nearby.map(({ cluster, next }) => (
               <View key={cluster.ids[0]} style={styles.stopCard}>
@@ -122,41 +120,26 @@ export default function TripScreen() {
               </View>
             ))
           )}
-        </Section>
+        </View>
+        ) : null}
+        </View>
 
         <Section title="Vers le travail">
-          {!home || !work ? (
-            <Text style={styles.meta}>Ajoute le domicile et le travail.</Text>
+          {!work ? (
+            <Text style={styles.meta}>Ajoute le travail.</Text>
+          ) : !commuteFrom ? (
+            <Text style={styles.meta}>Active la position, ou enregistre le domicile.</Text>
+          ) : commute.length === 0 ? (
+            <Text style={styles.meta}>Aucun trajet depuis ta position.</Text>
           ) : (
-            <>
-              <Text style={styles.meta} numberOfLines={2}>
-                {home.address} → {work.address}
-              </Text>
-              {commute.length === 0 ? (
-                <Text style={styles.meta}>Aucun trajet entre ces deux points.</Text>
-              ) : (
-                commute.map((itinerary) => (
-                  <Pressable key={itinerary.id} style={styles.stopCard} onPress={() => openCommute(itinerary)}>
-                    <View style={styles.stopHead}>
-                      <Text style={styles.cardTitle}>{itinerary.totalMin} min</Text>
-                      <Text style={styles.meta}>{itinerary.summary}</Text>
-                    </View>
-                    {itinerary.legs.map((leg) => (
-                      <ArrivalLine
-                        key={`${itinerary.id}-${leg.routeId}-${leg.boardName}`}
-                        routeId={leg.routeId}
-                        color={leg.color}
-                        textColor={leg.textColor}
-                        shortName={leg.shortName}
-                        detail={`${leg.boardName} → ${leg.alightName}`}
-                        when={leg.boardAt ?? `${leg.waitMin} min`}
-                        disrupted={false}
-                      />
-                    ))}
-                  </Pressable>
-                ))
-              )}
-            </>
+            commute.map((itinerary) => (
+              <ItineraryCard
+                key={itinerary.id}
+                itinerary={itinerary}
+                live={Boolean(here)}
+                onPress={() => openCommute(itinerary)}
+              />
+            ))
           )}
         </Section>
 

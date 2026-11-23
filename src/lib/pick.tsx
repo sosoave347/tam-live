@@ -8,7 +8,8 @@ type PickValue = {
   role: PickRole | null;
   origin: SavedPlace | null;
   destination: SavedPlace | null;
-  start: (role: PickRole) => void;
+  back: "/trajet" | "/amigo";
+  start: (role: PickRole, back?: "/trajet" | "/amigo") => void;
   cancel: () => void;
   confirm: (place: SavedPlace) => void;
   clear: (role: PickRole) => void;
@@ -18,15 +19,20 @@ const PickContext = createContext<PickValue | null>(null);
 
 export function PickProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<PickRole | null>(null);
+  const [back, setBack] = useState<"/trajet" | "/amigo">("/trajet");
   const [origin, setOrigin] = useState<SavedPlace | null>(null);
   const [destination, setDestination] = useState<SavedPlace | null>(null);
 
   const value = useMemo<PickValue>(
     () => ({
       role,
+      back,
       origin,
       destination,
-      start: setRole,
+      start: (next, returnTo = "/trajet") => {
+        setBack(returnTo);
+        setRole(next);
+      },
       cancel: () => setRole(null),
       confirm: (place) => {
         if (role === "origin") setOrigin(place);
@@ -38,7 +44,7 @@ export function PickProvider({ children }: { children: ReactNode }) {
         if (target === "destination") setDestination(null);
       },
     }),
-    [role, origin, destination],
+    [role, back, origin, destination],
   );
 
   return <PickContext.Provider value={value}>{children}</PickContext.Provider>;

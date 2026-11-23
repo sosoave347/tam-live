@@ -113,7 +113,7 @@ export function NetworkMap() {
     try {
       const address = await readableAddress(latitude, longitude, "Point sur la carte");
       pick.confirm({ address, latitude, longitude });
-      router.push("/amigo");
+      router.push(pick.back);
     } finally {
       setPlacing(false);
     }
@@ -236,7 +236,7 @@ export function NetworkMap() {
                   style={styles.tool}
                   onPress={() => {
                     pick.cancel();
-                    router.push("/amigo");
+                    router.push(pick.back);
                   }}>
                   <Text style={styles.toolText}>Annuler</Text>
                 </Pressable>

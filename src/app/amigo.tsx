@@ -77,13 +77,13 @@ export default function AmigoScreen() {
   function chooseOrigin(kind: (typeof ORIGINS)[number][0]) {
     setOriginKind(kind);
     if (kind === "pin") {
-      pick.start("origin");
+      pick.start("origin", "/amigo");
       router.push("/");
     }
   }
 
   function dropDestination() {
-    pick.start("destination");
+    pick.start("destination", "/amigo");
     router.push("/");
   }
 
@@ -274,7 +274,7 @@ export default function AmigoScreen() {
                   <Text style={styles.legText} numberOfLines={2}>
                     {leg.boardName} → {leg.alightName}
                     {"\n"}
-                    {leg.boardAt ? `${leg.boardAt} · ${leg.rideMin} min` : `${leg.waitMin} min d'attente · ${leg.rideMin} min`}
+                    {`Départ ${leg.boardAt} · arrivée ${leg.alightAt}\n${leg.waitMin} min d'attente · ${leg.rideMin} min`}
                   </Text>
                 </View>
               ))
